@@ -1,8 +1,11 @@
 from google.appengine.api import users
 from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
-from google.appengine.api import channel
 from google.appengine.api import memcache
+
+import logging
+import webapp2
+from webapp2_extras import sessions
 
 import string
 import random
@@ -10,14 +13,11 @@ import os
 import unicodedata
 
 import jinja2
-import webapp2
-from webapp2_extras import sessions
 
 from chat_utils import *
 from chat_objs import *
 
 _URL_CHAT = '/chat'
-JS_VERSION_HACK = '206'
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
@@ -36,59 +36,52 @@ def get_rand_string(length):
     
 class MainPage(BaseHandler):
     def get(self):        
-        room_name = get_rand_string(10)
-        room = ChatRoom(room_name)
-        room_url = '{0}?room={1}'.format(_URL_CHAT, room_name)
-
-        memcache.add(room_name, room)
-        
-        user_id = self.session.get('user_id')
-        if not user_id:
-            self.session['user_id'] = get_rand_string(10)
-        
         vals = {
-            'room_url' : room_url,
+            'call_url' : _URL_CHAT,
             'rooms' : ChatRoom.get_rooms(),
-        }        
+        }
         t = get_template('templates/index.html')
         self.response.write(t.render(vals))
 
+        
+        
 class ChatPage(BaseHandler):
     def get(self):
-        user_id = self.session.get('user_id')        
-        room_name = self.request.get('room')
+        del self.session['user_id']
+        cuser = None
+        user_id = self.session.get('user_id')
+        if user_id:
+            cuser = ChatCaller.get_by_id(user_id)
+
+        screen_name = self.request.get('screen_name')               
+        if cuser:
+            if screen_name and not (screen_name == cuser.screen_name):
+                cuser.screen_name = screen_name
+                cuser.put()
+        else:
+            if not screen_name:
+                screen_name = ''
+                
+            cuser = ChatCaller.factory(self.request.remote_addr, screen_name)
+            if cuser:
+                self.session['user_id'] = cuser.key.id()
         
-        if (not user_id) or (not room_name):
-            self.error(404)
-            return
-            
-        token = channel.create_channel(get_channel_token(user_id, room_name))
-        if not token:
+        if not cuser:
             self.error(404)
             return
             
         vals = {
-            'channel_token' : token,
-            'room_name' : room_name,
-            'version_hack' : JS_VERSION_HACK,
+            'room_name' : ChatRoom.room_name_from_key(cuser.room_key),            
+            'channel_token' : cuser.channel_token,
         }        
         t = get_template('templates/chat_room.html')
         self.response.write(t.render(vals))
-        
-class NopPage(BaseHandler):
-    def get(self):
-        self.response.write('nop')
-        
-    def post(self):
-        return
-        
+               
 application = webapp2.WSGIApplication(
     [
         ('/', MainPage),
         ('/dup', MainPage),
-        (_URL_CHAT, ChatPage),        
-        ('/_ah/channel/connected/', NopPage),
-        ('/_ah/channel/disconnected/', NopPage),
+        (_URL_CHAT, ChatPage),
     ],
     debug=True, config=CONFIG)
 

@@ -8,10 +8,6 @@ CONFIG = {
     }
 }
 
-def get_channel_token(user_id, room_name):
-    # TODO: this needs to be secret?
-    return str(user_id) + str(room_name)
-
 class BaseHandler(webapp2.RequestHandler):
     def dispatch(self):
         # Get a session store for this request.

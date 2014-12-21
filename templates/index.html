@@ -8,7 +8,11 @@
 <li><a href="{{ url }}">{{ r }}</a></li>
 {% endfor %}
 
-<p><a href="{{ room_url }}">new chat room</a></p>
+<form action="{{ call_url }}">
+<p>Enter Screen Name: <input type="text" id="screenname" name="screen_name"></p>
+<p><input type="submit" value="Talk to an Operator" id="talk"></p>
+</form>
+
 {% endblock body %}
 
 {% block bottom %}

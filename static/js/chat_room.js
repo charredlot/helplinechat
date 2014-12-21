@@ -21,17 +21,20 @@ onMessage = function(m) {
     var msg = JSON.parse(m.data);
     
     if ('is_server' in msg) {
-        line = "<br><b>" + msg.line + "</b>"
+        line = "<br><b>" + msg.line + "</b>";
     } else {
-        line = "<br><b>" + msg.from + "</b>: " + msg.line
+        line = "<br><b>" + msg.from + "</b>: " + msg.line;
     }
-    //console.log("eek:" + line)
-    $('#lines').append(line)
+    
+    var lines = $('#lines')
+    
+    lines.append(line);
+    lines.scrollTop(lines[0].scrollHeight);
     // $('#lines').append($('<br>').append($('<b>').text(msg.from), msg.line));
 };
 
 openChannel = function(room_name, tok) {
-    g_state.room_name = room_name
+    g_state.room_name = room_name;
     var token = tok;
     var channel = new goog.appengine.Channel(token);
     var handler = {
@@ -58,5 +61,6 @@ send_to_room = function() {
     post_message("/channel/msg", data);
     $("#chatmsg").val("");
 }
+
 
 

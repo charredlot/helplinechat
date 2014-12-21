@@ -2,7 +2,7 @@
 {% extends "templates/base.html" %}
 
 {% block more_js %}
-<script type='text/javascript' src='/static/js/chat_room.js?version={{ version_hack }}'></script>
+<script type='text/javascript' src='/static/js/chat_room.js?version=210'></script>
 {% endblock more_js %}
 
 {% block css %}
@@ -17,18 +17,24 @@
 </style>
 {% endblock css %}
 
-{% block title %}{{ room_name }}{% endblock title %}
+{% block title %}{% endblock title %}
 
 {% block body %}
-<p>{{ room_name }}</p>
-<p>{{ channel_token }}</p>
 <script type='text/javascript'>
 setTimeout(
     function() { 
         initialize("{{ room_name }}", "{{ channel_token }}"); 
     }, 
     100);
+
+$(function() {
+    $("#chatmsg").keypress(function(event){
+        if(event.keyCode == 13){ // 13 is enter
+            $("#sendbutton").click();
+        }
+    });
+});
 </script>
 <div id="lines">la la la</div>
-<input type="text" id="chatmsg"><input value="Send" type="button" onclick="javascript:send_to_room();">
+<input type="text" id="chatmsg"><input value="Send" id="sendbutton" type="button" onclick="javascript:send_to_room();">
 {% endblock body %}
