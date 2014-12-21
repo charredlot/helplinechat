@@ -1,0 +1,16 @@
+
+{% extends "templates/base.html" %}
+
+{% block title %}home{% endblock title %}
+
+{% block body %}
+{% for r, url in rooms %}
+<li><a href="{{ url }}">{{ r }}</a></li>
+{% endfor %}
+
+<p><a href="{{ room_url }}">new chat room</a></p>
+{% endblock body %}
+
+{% block bottom %}
+footer?
+{% endblock bottom %}

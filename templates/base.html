@@ -1,0 +1,28 @@
+<html>
+
+<head>
+    <script src='/_ah/channel/jsapi'></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {% block more_js %}{% endblock more_js %}
+    {% block css %}{% endblock css%}
+    <meta charset="utf-8">
+    <title>{% block title %}{% endblock title %}</title>
+</head>
+
+<body>
+{% block top %}
+{% endblock top %}
+<hr>
+
+{% block body %}
+{% endblock body %}
+
+<hr>
+<a href='/'>Home</a> |
+{% block bottom %}
+{% endblock bottom %}
+
+<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+</body>
+
+</html>
