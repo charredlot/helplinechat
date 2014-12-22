@@ -15,12 +15,6 @@ import unicodedata
 from chat_utils import *
 from chat_objs import *
 
-_URL_LOGIN = '/login'
-_URL_LOGOUT = '/logout'
-_URL_DASHBOARD = '/home'
-_URL_MODIFY = _URL_DASHBOARD + '/modify'
-_URL_CALL = '/call'
-
 RAND_CHARSET = string.ascii_lowercase + string.digits
 def get_rand_string(length):
     return unicode(
@@ -81,51 +75,21 @@ class LoginPage(BaseHandler):
                 self.error(404)
                 return
             self.session['user_id'] = o.key.id()
-        self.redirect(_URL_DASHBOARD)
+        self.redirect(ChatURL.OHOME)
 
 class LogoutPage(BaseHandler):
     def get(self):
         o = self.get_operator()
         if o:
             self.logout_operator()
-        
-class DashPage(BaseHandler):    
-    def get(self):
-        o = self.get_operator()
-        if not o:
-            # TODO: some kind of error?
-            self.redirect('/')
-            return
-
-        vals = {
-            'operator_name' : o.key.id(),
-            'screen_name' : o.screen_name,
-        }
-        self.template_response('templates/dashboard.html', vals)
-
-class ModifyPage(BaseHandler):
-    def post(self):
-        o = self.get_operator()
-        if not o:
-            self.redirect('/')
-            return
-        
-        screen_name = self.request.get('screen_name')
-        if screen_name:
-            o.screen_name = screen_name
-            o.put()
-
-        self.redirect(_URL_DASHBOARD)
  
 application = webapp2.WSGIApplication(
     [
         ('/', MainPage),
         ('/dup', MainPage),
-        (_URL_LOGIN, LoginPage),
-        (_URL_LOGOUT, LogoutPage),
-        (_URL_DASHBOARD, DashPage),
-        (_URL_CALL, CallPage),
-        (_URL_MODIFY, ModifyPage),
+        (ChatURL.LOGIN, LoginPage),
+        (ChatURL.LOGOUT, LogoutPage),        
+        (ChatURL.CALL, CallPage),
     ],
     debug=True, config=CONFIG)
 

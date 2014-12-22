@@ -1,0 +1,25 @@
+
+{% extends "templates/base.html" %}
+
+{% block title %}home{% endblock title %}
+
+{% block body %}
+
+<p>Logged in as {{ operator_name }}</p>
+<p>Current Screen Name: {{ screen_name }}</p>
+
+<div id='calls'></div>
+
+<form action="/home/modify" method='post'>
+<p>
+<input type="submit" value="Change Screen Name">
+ New Screen Name: <input type="text" name="screen_name">
+</p>
+</form>
+
+{% endblock body %}
+
+{% block bottom %}
+<a href='/logout'>Logout</>
+{% endblock bottom %}
+

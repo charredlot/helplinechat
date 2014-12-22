@@ -1,5 +1,4 @@
 from google.appengine.api import channel
-from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.ext.webapp.util import run_wsgi_app
 
@@ -89,8 +88,6 @@ class NopPage(BaseHandler):
         
     def post(self):
         return
-
-
         
 app = webapp2.WSGIApplication(
     [
@@ -100,5 +97,10 @@ app = webapp2.WSGIApplication(
         ('/_ah/channel/disconnected/', NopPage),
     ],
     debug=True, config=CONFIG)
-run_wsgi_app(app)    
+
+def main():
+    run_wsgi_app(application)
+
+if __name__ == "__main__":
+    main()
     

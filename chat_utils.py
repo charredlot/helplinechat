@@ -7,6 +7,13 @@ from webapp2_extras import sessions
 
 from chat_objs import *
 
+class ChatURL(object):
+    LOGIN = '/login'
+    LOGOUT = '/logout'
+    OHOME = '/home'
+    OMODIFY = ChatURL.OHOME + '/modify'
+    CALL = '/call'
+
 CONFIG = {
     'webapp2_extras.sessions' : {
         'secret_key': 'my-super-secret-key',
