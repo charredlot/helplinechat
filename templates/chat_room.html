@@ -2,17 +2,26 @@
 {% extends "templates/base.html" %}
 
 {% block more_js %}
-<script type='text/javascript' src='/static/js/chat_room.js?version=210'></script>
+<script type='text/javascript' src='/static/js/chat_room.js?version=211'></script>
 {% endblock more_js %}
 
 {% block css %}
 <style type='text/css'>
- #lines {
+ #chatlines {
+    display: inline-block;
     height: 50vh;
     width: 75vw;
     border-style: solid;
     border-width: 1px;
     overflow-y: scroll;
+    }
+ #chatusers {
+    display: inline-block;
+    height: 50vh;
+    width: 10vw;
+    border-style: solid;
+    border-width: 1px;
+    overflow-y: scroll;    
     }
 </style>
 {% endblock css %}
@@ -35,6 +44,11 @@ $(function() {
     });
 });
 </script>
-<div id="lines">la la la</div>
+
+<div id="status"><p><b>Not connected</b></p></div>
+<div id="chatlines"></div>
+<div id="chatusers"></div>
+<p>
 <input type="text" id="chatmsg"><input value="Send" id="sendbutton" type="button" onclick="javascript:send_to_room();">
+</p>
 {% endblock body %}

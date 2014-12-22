@@ -12,11 +12,11 @@ handlers:
 - url: /static
   static_dir: static
   
-- url: /channel/.*
-  script: chat_channel.py
+- url: /room/.*
+  script: chat_room.py
 
 - url: /_ah/channel/.*
-  script: chat_channel.py  
+  script: chat_room.py  
   
 - url: /.*
   script: chat_base.py

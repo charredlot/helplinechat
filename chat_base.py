@@ -12,19 +12,14 @@ import random
 import os
 import unicodedata
 
-import jinja2
-
 from chat_utils import *
 from chat_objs import *
 
-_URL_CHAT = '/chat'
-
-JINJA_ENVIRONMENT = jinja2.Environment(
-    loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
-    extensions=['jinja2.ext.autoescape'],
-    autoescape=True)    
-def get_template(path):
-    return JINJA_ENVIRONMENT.get_template(path)
+_URL_LOGIN = '/login'
+_URL_LOGOUT = '/logout'
+_URL_DASHBOARD = '/home'
+_URL_MODIFY = _URL_DASHBOARD + '/modify'
+_URL_CALL = '/call'
 
 RAND_CHARSET = string.ascii_lowercase + string.digits
 def get_rand_string(length):
@@ -33,25 +28,23 @@ def get_rand_string(length):
             (random.choice(RAND_CHARSET) for x in range(length))
         ) 
     )
-    
+  
 class MainPage(BaseHandler):
     def get(self):        
         vals = {
-            'call_url' : _URL_CHAT,
+            'call_url' : _URL_CALL,
             'rooms' : ChatRoom.get_rooms(),
         }
-        t = get_template('templates/index.html')
-        self.response.write(t.render(vals))
-
+        self.template_response('templates/index.html', vals)
         
-        
-class ChatPage(BaseHandler):
-    def get(self):
-        del self.session['user_id']
+class CallPage(BaseHandler):
+    def get(self):        
         cuser = None
         user_id = self.session.get('user_id')
         if user_id:
-            cuser = ChatCaller.get_by_id(user_id)
+            # TODO: reset user id just for ease of testing
+            del self.session['user_id']
+            #cuser = ChatCaller.get_by_id(user_id)
 
         screen_name = self.request.get('screen_name')               
         if cuser:
@@ -69,19 +62,70 @@ class ChatPage(BaseHandler):
         if not cuser:
             self.error(404)
             return
-            
+        
+        call = ChatCall.factory(cuser.key)
+        
         vals = {
-            'room_name' : ChatRoom.room_name_from_key(cuser.room_key),            
-            'channel_token' : cuser.channel_token,
-        }        
-        t = get_template('templates/chat_room.html')
-        self.response.write(t.render(vals))
-               
+            'room_name' : ChatRoom.room_name_from_key(call.chat_channel.room_key),
+            'channel_token' : call.chat_channel.channel_token,
+        }
+        self.template_response('templates/chat_room.html', vals)
+        
+class LoginPage(BaseHandler):
+    def get(self):
+        # TODO: actually do the login
+        o = self.get_operator()
+        if not o:
+            o = ChatOperator.get_or_insert('smooth_operator')
+            if not o:
+                self.error(404)
+                return
+            self.session['user_id'] = o.key.id()
+        self.redirect(_URL_DASHBOARD)
+
+class LogoutPage(BaseHandler):
+    def get(self):
+        o = self.get_operator()
+        if o:
+            self.logout_operator()
+        
+class DashPage(BaseHandler):    
+    def get(self):
+        o = self.get_operator()
+        if not o:
+            # TODO: some kind of error?
+            self.redirect('/')
+            return
+
+        vals = {
+            'operator_name' : o.key.id(),
+            'screen_name' : o.screen_name,
+        }
+        self.template_response('templates/dashboard.html', vals)
+
+class ModifyPage(BaseHandler):
+    def post(self):
+        o = self.get_operator()
+        if not o:
+            self.redirect('/')
+            return
+        
+        screen_name = self.request.get('screen_name')
+        if screen_name:
+            o.screen_name = screen_name
+            o.put()
+
+        self.redirect(_URL_DASHBOARD)
+ 
 application = webapp2.WSGIApplication(
     [
         ('/', MainPage),
         ('/dup', MainPage),
-        (_URL_CHAT, ChatPage),
+        (_URL_LOGIN, LoginPage),
+        (_URL_LOGOUT, LogoutPage),
+        (_URL_DASHBOARD, DashPage),
+        (_URL_CALL, CallPage),
+        (_URL_MODIFY, ModifyPage),
     ],
     debug=True, config=CONFIG)
 
