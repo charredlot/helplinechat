@@ -7,13 +7,6 @@ from webapp2_extras import sessions
 
 from chat_objs import *
 
-class ChatURL(object):
-    LOGIN = '/login'
-    LOGOUT = '/logout'
-    OHOME = '/home'
-    OMODIFY = ChatURL.OHOME + '/modify'
-    CALL = '/call'
-
 CONFIG = {
     'webapp2_extras.sessions' : {
         'secret_key': 'my-super-secret-key',
@@ -43,16 +36,16 @@ class BaseHandler(webapp2.RequestHandler):
         self.response.write(t.render(vals))
 
     def get_operator(self):
-        operator_id = self.session.get('operator_id')
+        operator_id = self.session.get('user_id')
         if not operator_id:
             return None
         
         return ChatOperator.get_by_id(operator_id)
         
     def logout_operator(self):
-        operator_id = self.session.get('operator_id')
+        operator_id = self.session.get('user_id')
         if operator_id:
-            del self.session['operator_id']
+            del self.session['user_id']
  
     @webapp2.cached_property
     def session(self):

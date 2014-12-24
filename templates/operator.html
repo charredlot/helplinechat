@@ -3,20 +3,102 @@
 
 {% block title %}home{% endblock title %}
 
+{% block css %}
+<style type='text/css'>
+ #calls {
+    height: 50vh;
+    width: 75vw;
+    border-style: solid;
+    border-width: 1px;
+    overflow-y: scroll;
+    }
+</style>
+{% endblock css %}
+
+
 {% block body %}
+<script type='text/javascript'>
 
-<p>Logged in as {{ operator_name }}</p>
-<p>Current Screen Name: {{ screen_name }}</p>
+var g_state = {};
+g_state.on_call_channel_token = "{{ on_call_channel_token }}";
 
-<div id='calls'></div>
+// TODO: put this in a common thing
+var post_message = function(path, data) {
+    var xhr = new XMLHttpRequest();
+    
+    xhr.open('POST', path, true);
+    xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+    xhr.send('data=' + JSON.stringify(data));  
+};
 
+go_off_call = function() {
+    if (g_state.socket != null) {
+        try {
+            g_state.socket.close();
+        } catch (e) {
+            // will close succeed? who knows!
+        }
+        g_state.socket = null;
+    }
+    $("#status").html("<p><b>Status: Off call</b></p>");
+    $("#oncall").prop('disabled', false);
+    $("#offcall").prop('disabled', true);
+}
+
+onOpened = function() {
+    var data = { 'on_call_channel_token' : g_state.token };
+    
+    post_message('/home/oncall', data);
+    $("#status").html("<p><b>Status: On call</b></p>");    
+    $("#oncall").prop('disabled', true);
+    $("#offcall").prop('disabled', false);
+    
+};
+
+onMessage = function(m) {
+    data = JSON.parse(m.data);
+    var call_info = data['call_info'];
+    var call_url = data['call_url'];
+    
+    $("#calls").append("<br><a href=\"" + call_url + "\"target = \"_blank\">" + call_info + "</a>");
+};
+
+onError = function(e) {
+    go_off_call();
+}
+
+onClose = function() {
+    go_off_call();
+}
+
+openChannel = function() {
+    var channel = new goog.appengine.Channel(g_state.on_call_channel_token);
+    var handler = {
+      'onopen': onOpened,
+      'onmessage': onMessage,
+      'onerror': onError,
+      'onclose': onClose,
+    };
+    g_state.socket = channel.open(handler);
+};
+
+go_on_call = function() {
+    setTimeout(openChannel, 100);
+};
+</script>
+
+<p>token {{ on_call_channel_token }} </p>
+<p>Logged in as {{ operator_name }} | Current Screen Name: <b>{{ screen_name }}</b></p>
 <form action="/home/modify" method='post'>
 <p>
+New Screen Name: <input type="text" name="screen_name">
 <input type="submit" value="Change Screen Name">
- New Screen Name: <input type="text" name="screen_name">
 </p>
 </form>
-
+<input value="Go On Call" id="oncall" type="button" onclick="javascript:go_on_call();">
+<input value="Go Off Call" id="offcall" type="button" disabled="true" onclick="javascript:go_off_call();">
+<div id='status'><p><b>Status: Not on call</b></p></div>
+<div id='calls'></div>
 {% endblock body %}
 
 {% block bottom %}

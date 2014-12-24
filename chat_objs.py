@@ -5,6 +5,16 @@ from google.appengine.ext.ndb import polymodel
 
 import logging
 
+class ChatURL(object):
+    LOGIN = '/login'
+    LOGOUT = '/logout'
+    OHOME = '/home'
+    OMODIFY = '/home/modify'
+    OONCALL = '/home/oncall'
+    OOFFCALL = '/home/offcall'
+    OCHAT = '/home/chat'
+    CALL = '/call'
+
 def get_channel_id(user_id, room_id):
     # TODO: this needs to be secret? if so do a hash?
     return str(user_id) + str(room_id)
@@ -23,8 +33,25 @@ class ChatUser(polymodel.PolyModel):
         return False
         
 class ChatOperator(ChatUser):
+    is_on_call = ndb.BooleanProperty()
+    on_call_channel_token = ndb.StringProperty()
     def is_operator(self):
         return True
+        
+    @staticmethod
+    def room_url_from_call(call):        
+        room = call.caller_channel.room_key.get()
+        if not room:
+            return None
+            
+        return "{0}?room_name={1}".format(ChatURL.OCHAT, room.key.id())
+    
+    def refresh_channel(self):
+        # TODO save the date and do date compare
+        # also this is bad but meh        
+        if not self.on_call_channel_token:
+            self.on_call_channel_token = channel.create_channel(self.key.id(), 24*60)
+            self.put()
         
 class ChatCaller(ChatUser):
     remote_addr = ndb.StringProperty()   
@@ -88,7 +115,10 @@ class ChatRoom(polymodel.PolyModel):
 
     @staticmethod
     def room_from_name(room_name):
-        return ChatRoom.get_by_id(long(room_name))
+        try:
+            return ChatRoom.get_by_id(long(room_name))
+        except ValueError:
+            return None
         
     @staticmethod
     def get_rooms():
@@ -96,8 +126,7 @@ class ChatRoom(polymodel.PolyModel):
 
 class ChatCall(ndb.Model):
     caller_key = ndb.KeyProperty(kind='ChatCaller')
-    room_key = ndb.KeyProperty(kind='ChatRoom')
-    chat_channel = ndb.StructuredProperty(ChatChannel)
+    caller_channel = ndb.StructuredProperty(ChatChannel)
 
     def get_url(self):
         return '/room?r=' + self.room_key.id()
@@ -120,7 +149,7 @@ class ChatCall(ndb.Model):
             room.key.delete()
             return
         
-        call.chat_channel = ChatChannel(user_key = caller_key,
+        call.caller_channel = ChatChannel(user_key = caller_key,
                                    room_key = room.key,
                                    channel_token = tok)
         call.put()

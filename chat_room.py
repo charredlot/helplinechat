@@ -47,7 +47,7 @@ def get_room_info(handler, page=""):
 
 class RoomConnectedPage(BaseHandler):
     def post(self):
-        user, room, data = get_room_info(self, "msg")
+        user, room, data = get_room_info(self, "connected")
         if not user:
             self.error(405)
             return    
@@ -61,7 +61,20 @@ class RoomConnectedPage(BaseHandler):
             'content' : 'user_list',
             'users' : room.get_screen_names(),
         })
-        channel.send_message(c.channel_token, msg)    
+        channel.send_message(c.channel_token, msg)
+
+BAD_CHARS = frozenset([
+    '"', '"', '<', '>', '&', '/', '\\'
+])
+        
+def lol_sanitize(line):
+    end = len(line)
+    if end > 200:
+        end = 200
+    return unicode(''.join( (c for c in line[:end] if not c in BAD_CHARS) ))
+        
+
+        
 class RoomMsgPage(BaseHandler):
     def post(self):
         user, room, data = get_room_info(self, "msg")
@@ -72,13 +85,18 @@ class RoomMsgPage(BaseHandler):
         if not 'line' in data:
             self.error(406)
             return
+
+        logging.info(user)
+        logging.info(room)
             
+        # TODO: real sanitize and rate-limit msgs
+        line = lol_sanitize(data['line'])
+        
         msg = json.dumps({
             'content' : 'user_msg',
             'from' : user.screen_name,
-            'line' : data['line'],
-        })
-                
+            'line' : line,
+        })               
         for c in room.chat_channels:
             channel.send_message(c.channel_token, msg)
                         
@@ -99,7 +117,7 @@ app = webapp2.WSGIApplication(
     debug=True, config=CONFIG)
 
 def main():
-    run_wsgi_app(application)
+    run_wsgi_app(app)
 
 if __name__ == "__main__":
     main()

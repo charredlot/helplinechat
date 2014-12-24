@@ -18,7 +18,7 @@ handlers:
 - url: /_ah/channel/.*
   script: chat_room.py  
 
-- url: /home/.*
+- url: /home.*
   script: chat_operator.py
   
 - url: /.*

@@ -1,6 +1,7 @@
 
 var g_state = {};
 
+// TODO: put this in a common thing
 var post_message = function(path, data) {
     var xhr = new XMLHttpRequest();
     

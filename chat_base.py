@@ -3,6 +3,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 from google.appengine.ext import db
 from google.appengine.api import memcache
 
+import json
 import logging
 import webapp2
 from webapp2_extras import sessions
@@ -26,7 +27,7 @@ def get_rand_string(length):
 class MainPage(BaseHandler):
     def get(self):        
         vals = {
-            'call_url' : _URL_CALL,
+            'call_url' : ChatURL.CALL,
             'rooms' : ChatRoom.get_rooms(),
         }
         self.template_response('templates/index.html', vals)
@@ -59,9 +60,18 @@ class CallPage(BaseHandler):
         
         call = ChatCall.factory(cuser.key)
         
+        # TODO: handle if room_url_from_call fails for some reason
+        msg = json.dumps({
+            'call_info' : call.key.id(),
+            'call_url' : ChatOperator.room_url_from_call(call),
+        })
+        operators = ChatOperator.query(ChatOperator.is_on_call==True).fetch()
+        for operator in operators:
+            channel.send_message(operator.on_call_channel_token, msg)
+        
         vals = {
-            'room_name' : ChatRoom.room_name_from_key(call.chat_channel.room_key),
-            'channel_token' : call.chat_channel.channel_token,
+            'room_name' : ChatRoom.room_name_from_key(call.caller_channel.room_key),
+            'channel_token' : call.caller_channel.channel_token,
         }
         self.template_response('templates/chat_room.html', vals)
         
@@ -69,19 +79,22 @@ class LoginPage(BaseHandler):
     def get(self):
         # TODO: actually do the login
         o = self.get_operator()
-        if not o:
+        if not o or not o.is_operator():
             o = ChatOperator.get_or_insert('smooth_operator')
             if not o:
                 self.error(404)
-                return
+                return        
             self.session['user_id'] = o.key.id()
+        o.refresh_channel()
+        o.put()
         self.redirect(ChatURL.OHOME)
 
 class LogoutPage(BaseHandler):
     def get(self):
         o = self.get_operator()
         if o:
-            self.logout_operator()
+            self.logout_operator()            
+        self.redirect('/')
  
 application = webapp2.WSGIApplication(
     [
