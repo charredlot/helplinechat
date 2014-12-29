@@ -1,7 +1,9 @@
-
 import os
+import string
 
+import json
 import jinja2
+
 import webapp2
 from webapp2_extras import sessions
 
@@ -20,6 +22,44 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 def get_template(path):
     return JINJA_ENVIRONMENT.get_template(path)
 
+SCREENNAME_CHARS = {
+    
+}
+
+def is_screenname_char(c):
+    # TODO: use some lib but whatever
+    n = ord(c)
+    return ((n >= ord('a') and n <= 'z') or
+            (n >= ord('A') and n <= 'Z') or
+            (n >= ord('0') and n <= '9') or
+            (n == ord('_')))
+               
+def sanitize_screenname(sn):
+    return unicode(''.join( (c for c in sn if is_screenname_char(c)) ))
+
+
+BAD_CHARS = {
+    '"'     : "&#34;", 
+    '\''    : "&#39;",
+    '<'     : "&lt;",
+    '>'     : "&gt;",
+    '&'     : "&amp;",
+    '/'     : "&#47;", 
+    '\\'    : "&#92;",
+}
+def replace_char(c):
+    try:
+        return BAD_CHARS[c]
+    except KeyError:
+        return c
+     
+def sanitize_chat_msg(msg):
+    # TODO: use some official library
+    end = len(msg)
+    if end > 200:
+        end = 200
+    return unicode(''.join( (replace_char(c) for c in msg[:end]) ))
+    
 class BaseHandler(webapp2.RequestHandler):
     def dispatch(self):
         # Get a session store for this request.
@@ -32,15 +72,48 @@ class BaseHandler(webapp2.RequestHandler):
             self.session_store.save_sessions(self.response)
 
     def template_response(self, template_path, vals):
+        if not vals:
+            vals = dict()
+        vals['gauth_scope'] = ChatSettings.GAUTH_SCOPE
+        vals['gauth_client_id'] = ChatSettings.GAUTH_CLIENT_ID
+        vals['logout_url'] = ChatURL.OLOGOUT
+        vals['login_url'] = ChatURL.OLOGIN
+        vals['check_login_url'] = ChatURL.OCHECK_LOGIN
+        vals['room_connected_url'] = ChatURL.ROOM_CONNECTED
+        vals['room_msg_url'] = ChatURL.ROOM_MSG
         t = get_template(template_path)
         self.response.write(t.render(vals))
 
-    def get_operator(self):
-        operator_id = self.session.get('user_id')
-        if not operator_id:
+    def get_chat_user(self):
+        user_id = self.session.get('user_id')
+        if not user_id:
             return None
         
+        return ChatUser.get_by_id(user_id)
+        
+    def get_operator(self):
+        operator_id = self.session.get('user_id')        
+        if not operator_id:
+            return None
+            
         return ChatOperator.get_by_id(operator_id)
+
+    def get_post_data_default(self):
+        raw_data = self.request.get('data')
+        if not raw_data:
+            logging.info("beep1")
+            return None
+            
+        try:
+            data = json.loads(raw_data)
+        except Exception as e:        
+            logging.info("beep2 {0} {1}".format(e, raw_data))
+            return None
+            
+        return data
+
+    def login_operator(self, user_id):
+        self.session['user_id'] = user_id        
         
     def logout_operator(self):
         operator_id = self.session.get('user_id')
@@ -51,4 +124,12 @@ class BaseHandler(webapp2.RequestHandler):
     def session(self):
         # Returns a session using the default cookie key.
         return self.session_store.get_session()
-        
+ 
+RAND_CHARSET = string.ascii_lowercase + string.digits
+def get_rand_string(length):
+    return unicode(
+        ''.join( 
+            (random.choice(RAND_CHARSET) for x in range(length))
+        ) 
+    )
+ 

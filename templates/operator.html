@@ -15,9 +15,48 @@
 </style>
 {% endblock css %}
 
+{% block top %}
+| <a id="logout" href="/unused">Log out</a>
+{% endblock top %}
 
 {% block body %}
+<p>token {{ on_call_channel_token }} </p>
+<p>Logged in as {{ operator_name }} | Current Screen Name: <b>{{ screenname }}</b></p>
+<form action="/home/modify" method='post'>
+<p>
+New Screen Name: <input type="text" name="screenname">
+<input type="submit" value="Change Screen Name">
+</p>
+</form>
+<input value="Go On Call" id="oncall" type="button" onclick="javascript:go_on_call();">
+<input value="Go Off Call" id="offcall" type="button" disabled="true" onclick="javascript:go_off_call();">
+<div id='status'><p><b>Status: Not on call</b></p></div>
+<div id='callpopup' style="display: none"></div>
+<div id='calls'></div>
+{% endblock body %}
+
+{% block bottom %}
 <script type='text/javascript'>
+$(function() {
+    $("#logout").click(function(e) {        
+        e.preventDefault();
+        gapi.auth.signOut();      
+    });
+});
+
+var bad_num_to_str = function(num) {
+    if (num < 10) {
+        return '0' + num;
+    } else {
+        return String(num);
+    }
+};
+
+var bad_date_to_str = function(d) {
+    return bad_num_to_str(d.getHours()) + ':' +
+        bad_num_to_str(d.getMinutes()) + ':' +
+        bad_num_to_str(d.getSeconds());        
+}
 
 var g_state = {};
 g_state.on_call_channel_token = "{{ on_call_channel_token }}";
@@ -28,7 +67,15 @@ var post_message = function(path, data) {
     
     xhr.open('POST', path, true);
     xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
-    xhr.send('data=' + JSON.stringify(data));  
+    if (data) {
+        return xhr.send('data=' + JSON.stringify(data));
+    } else {
+        return xhr.send();
+    }
+};
+
+var display_status = function(info) {
+    $("#status").html(info);
 };
 
 go_off_call = function() {
@@ -40,16 +87,16 @@ go_off_call = function() {
         }
         g_state.socket = null;
     }
-    $("#status").html("<p><b>Status: Off call</b></p>");
+    display_status("<p><b>Status: Off call</b></p>");
     $("#oncall").prop('disabled', false);
     $("#offcall").prop('disabled', true);
 }
 
 onOpened = function() {
-    var data = { 'on_call_channel_token' : g_state.token };
+    var data = { 'on_call_channel_token' : g_state.on_call_channel_token };
     
     post_message('/home/oncall', data);
-    $("#status").html("<p><b>Status: On call</b></p>");    
+    display_status("<p><b>Status: On call</b></p>");    
     $("#oncall").prop('disabled', true);
     $("#offcall").prop('disabled', false);
     
@@ -59,8 +106,10 @@ onMessage = function(m) {
     data = JSON.parse(m.data);
     var call_info = data['call_info'];
     var call_url = data['call_url'];
+    var d = new Date();
     
-    $("#calls").append("<br><a href=\"" + call_url + "\"target = \"_blank\">" + call_info + "</a>");
+    $("#calls").append("<br>" + bad_date_to_str(d) +
+        " New call <a href=\"" + call_url + "\"target = \"_blank\">" + call_info + "</a>");   
 };
 
 onError = function(e) {
@@ -72,7 +121,7 @@ onClose = function() {
 }
 
 openChannel = function() {
-    var channel = new goog.appengine.Channel(g_state.on_call_channel_token);
+    var channel = new goog.appengine.Channel(g_state.on_call_channel_token.replace(/"/g, ''));
     var handler = {
       'onopen': onOpened,
       'onmessage': onMessage,
@@ -83,25 +132,36 @@ openChannel = function() {
 };
 
 go_on_call = function() {
-    setTimeout(openChannel, 100);
+    $.post("/home/oncall",
+            function(data, status) {
+                if ("success" == status) {
+                    g_state.on_call_channel_token = data;
+                    setTimeout(openChannel, 100);
+                } else {
+                    display_status(status + " data:" + data);
+                }
+            }
+        );
+};
+
+function gplusCallback(res) {    
+    if (res['error'] == 'user_signed_out') {
+        // TODO: make redirect to post a function
+        var action_url = "{{ logout_url }}";
+        var form = $('<form action="' + action_url + '" method="post"></form>');           
+        $('body').append(form);        
+        form.submit();        
+    }
 };
 </script>
 
-<p>token {{ on_call_channel_token }} </p>
-<p>Logged in as {{ operator_name }} | Current Screen Name: <b>{{ screen_name }}</b></p>
-<form action="/home/modify" method='post'>
-<p>
-New Screen Name: <input type="text" name="screen_name">
-<input type="submit" value="Change Screen Name">
-</p>
-</form>
-<input value="Go On Call" id="oncall" type="button" onclick="javascript:go_on_call();">
-<input value="Go Off Call" id="offcall" type="button" disabled="true" onclick="javascript:go_off_call();">
-<div id='status'><p><b>Status: Not on call</b></p></div>
-<div id='calls'></div>
-{% endblock body %}
-
-{% block bottom %}
-<a href='/logout'>Logout</>
+<span id="gpluslogin" style="display: none">
+  <span
+    class="g-signin"
+    data-callback="gplusCallback"
+    data-clientid="{{ gauth_client_id }}"
+    data-cookiepolicy="single_host_origin"
+    data-scope="email"    
+  </span>
+</span>
 {% endblock bottom %}
-

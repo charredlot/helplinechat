@@ -28,15 +28,17 @@ onOpened = function() {
     post_message("/room/connected", data);
 };
 
-var displayUsers = function(msg) {
-    var users = msg['users'];
+var displayScreennames = function(msg) {
+    var users = msg['screennames'];
     var chatusers = $("#chatusers");
     
+    var x = "";
     for (var i=0, size=users.length; i < size; i++) {
-        var l = "<br><b>" + users[i] + "</b>";
-        
-        chatusers.append(l);
+        var l = "<br><b>" + users[i] + "</b>";        
+        x += l
     }
+    
+    chatusers.html(x)
 }
 
 onMessage = function(m) {
@@ -51,8 +53,8 @@ onMessage = function(m) {
         
     var content = msg['content'];
     
-    if (content === 'user_list') {
-        displayUsers(msg);
+    if (content === 'screennames') {
+        displayScreennames(msg);
         return;
     } else if (content === 'announcement') {
         line = line + "<b>" + msg.line + "</b>";
