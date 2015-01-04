@@ -73,25 +73,21 @@ class MainPage(BaseHandler):
 class CallPage(BaseHandler):
     def get(self):        
         cuser = None
+        
+        screenname = sanitize_screenname(self.request.get('screenname'))
         user_id = self.session.get('user_id')
         if user_id:
-            # TODO: reset user id just for ease of testing
-            del self.session['user_id']
-            #cuser = ChatCaller.get_by_id(user_id)
-
-        screenname = self.request.get('screenname')
-        if screenname:
-            screenname = sanitize_screenname(screenname)
+            cuser = ChatCaller.get_by_id(user_id)
+            if cuser and (cuser.remote_addr() != self.request.remote_addr):
+                self.error(404)
+                return
             
         if cuser:
             if screenname and (screenname != cuser.screenname):
                 cuser.screenname = screenname
                 cuser.put()
-        else:
-            if not screenname:
-                screenname = ''
-                
-            cuser = ChatCaller.factory(self.request.remote_addr, screenname)
+        else:            
+            cuser = ChatCaller.caller_get_or_insert(self.request.remote_addr, screenname)
             if cuser:
                 self.session['user_id'] = cuser.key.id()
         
@@ -104,7 +100,7 @@ class CallPage(BaseHandler):
             self.error(505)
             return
             
-        ChatOperator.call_operators(call)
+        ChatOperator.announce_call(call)
 
         self.redirect(call.get_url())
 

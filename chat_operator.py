@@ -35,6 +35,7 @@ class OHomePage(BaseHandler):
             'operator_name' : o.key.id(),
             'on_call_channel_token' : o.on_call_channel_token,
             'screenname' : o.screenname,
+            'is_on_call' : o.is_on_call,
         }
         self.template_response('templates/operator.html', vals)
 
@@ -78,7 +79,7 @@ class OOffCallPage(BaseHandler):
         
         self.response.write("off call")
 
-class OChatPage(BaseHandler):
+class OAnswerPage(BaseHandler):
     def get(self):
         o = self.get_operator()      
         if not o:
@@ -86,27 +87,21 @@ class OChatPage(BaseHandler):
             return
             
         try:
-            room_name = long(self.request.get('room_name'))
+            call_id = long(self.request.get('call_id'))
+            call, room, channel_token = o.answer_call(call_id)
         except Exception as e:
-            room_name = None
+            logging.info(e)
+            call = None
             
-        if not room_name:
-            self.error(406)
+        if not call:
+            self.redirect(ChatURL.OCALLANSWERED)
             return
-
-        room = ChatRoom.get_by_id(room_name)
-        if not room:
-            self.error(407)
-            return
-
-        tok, newly_added = room.add_user_key(o.key)
-        if not tok:
-            self.error(408)
-            return
-            
+        
+        ChatOperator.announce_call(call, answered=True)
+        
         vals = {
-            'room_name' : room_name,
-            'channel_token' : tok,
+            'room_name' : room.key.id(),            
+            'channel_token' : channel_token,
         }           
         return self.template_response('templates/chat_room.html', vals)
 
@@ -118,6 +113,20 @@ class OCheckLoginPage(BaseHandler):
             return
             
         self.response.write("you are indeed logged in")
+
+class OCallAnsweredPage(BaseHandler):
+    def get(self):
+        self.response.write("Sorry, the call's been answered already! You can close this window")
+
+class ORefreshCallsPage(BaseHandler):
+    def post(self):
+        o = self.get_operator()
+        if not o:
+            self.error(405)
+            return
+        
+        # TODO: let operator know all the calls they missed       
+     
         
 app = webapp2.WSGIApplication(
     [
@@ -125,7 +134,9 @@ app = webapp2.WSGIApplication(
         (ChatURL.OMODIFY, OModifyPage),
         (ChatURL.OONCALL, OOnCallPage),
         (ChatURL.OOFFCALL, OOffCallPage),
-        (ChatURL.OCHAT, OChatPage),
+        (ChatURL.OANSWER, OAnswerPage),
+        (ChatURL.OREFRESHCALLS, ORefreshCallsPage),
+        (ChatURL.OCALLANSWERED, OCallAnsweredPage),
         (ChatURL.OCHECK_LOGIN, OCheckLoginPage),
     ],
     debug=True, config=CONFIG)

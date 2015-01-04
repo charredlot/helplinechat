@@ -28,8 +28,16 @@ New Screen Name: <input type="text" name="screenname">
 <input type="submit" value="Change Screen Name">
 </p>
 </form>
+
+<p>Due to techinical limitations, please close the alert windows that pop up with each call or you won't get subsequent calls.</p>
+{% if is_on_call %}
+<input value="Go On Call" id="oncall" type="button" disabled="disabled" onclick="javascript:go_on_call();">
+<input value="Go Off Call" id="offcall" type="button" onclick="javascript:go_off_call();">
+{% else %}
 <input value="Go On Call" id="oncall" type="button" onclick="javascript:go_on_call();">
-<input value="Go Off Call" id="offcall" type="button" disabled="true" onclick="javascript:go_off_call();">
+<input value="Go Off Call" id="offcall" type="button" disabled="disabled" onclick="javascript:go_off_call();">
+{% endif %}
+
 <div id='status'><p><b>Status: Not on call</b></p></div>
 <div id='callpopup' style="display: none"></div>
 <div id='calls'></div>
@@ -44,7 +52,7 @@ $(function() {
     });
 });
 
-var bad_num_to_str = function(num) {
+var bad_num_pad = function(num) {
     if (num < 10) {
         return '0' + num;
     } else {
@@ -53,13 +61,15 @@ var bad_num_to_str = function(num) {
 };
 
 var bad_date_to_str = function(d) {
-    return bad_num_to_str(d.getHours()) + ':' +
-        bad_num_to_str(d.getMinutes()) + ':' +
-        bad_num_to_str(d.getSeconds());        
+    return bad_num_pad(d.getHours()) + ':' +
+        bad_num_pad(d.getMinutes()) + ':' +
+        bad_num_pad(d.getSeconds());        
 }
 
 var g_state = {};
 g_state.on_call_channel_token = "{{ on_call_channel_token }}";
+
+var g_call_ids = {};
 
 // TODO: put this in a common thing
 var post_message = function(path, data) {
@@ -87,7 +97,7 @@ go_off_call = function() {
         }
         g_state.socket = null;
     }
-    display_status("<p><b>Status: Off call</b></p>");
+    display_status("<p><b>Status: Not on call</b></p>");
     $("#oncall").prop('disabled', false);
     $("#offcall").prop('disabled', true);
 }
@@ -104,12 +114,22 @@ onOpened = function() {
 
 onMessage = function(m) {
     data = JSON.parse(m.data);
-    var call_info = data['call_info'];
+    var call_id = data['call_id'];
     var call_url = data['call_url'];
+    var call_answered = (data['call_answered'] === 'true');
     var d = new Date();
     
-    $("#calls").append("<br>" + bad_date_to_str(d) +
-        " New call <a href=\"" + call_url + "\"target = \"_blank\">" + call_info + "</a>");   
+    if (call_id in g_call_ids) {
+        var call_id_span = '#' + call_id;
+        $(call_id_span).html('<a href="' + call_url + '" target="_blank">' + call_id + 
+            '</a> was answered (' + bad_date_to_str(d) + ')');
+    } else {
+        $("#calls").append('<br>' + bad_date_to_str(d) + ' <span id="' + call_id + 
+            '">New call <a href="' + call_url + "\"target = \"_blank\">" + call_id +
+            "</a></span>");
+        g_call_ids[call_id] = true;
+        alert('New call ' + call_id + ' (please click ok to keep getting calls)');
+    }    
 };
 
 onError = function(e) {
@@ -143,6 +163,10 @@ go_on_call = function() {
             }
         );
 };
+
+{% if is_on_call %}
+go_on_call();
+{% endif %}
 
 function gplusCallback(res) {    
     if (res['error'] == 'user_signed_out') {

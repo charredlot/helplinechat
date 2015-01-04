@@ -14,7 +14,9 @@ class ChatURL(object):
     OMODIFY = '/home/modify'
     OONCALL = '/home/oncall'
     OOFFCALL = '/home/offcall'
-    OCHAT = '/home/chat'
+    OANSWER = '/home/answer'
+    OCALLANSWERED = '/home/call_answered'
+    OREFRESHCALLS = '/home/refresh_calls'
     OCHECK_LOGIN = '/home/check_login'
     OLOGIN = '/login'
     OLOGIN_FINISH = '/login_finish'
@@ -22,12 +24,7 @@ class ChatURL(object):
     CALL = '/call'
     ROOM = '/room'
     ROOM_CONNECTED = '/room/connected'
-    ROOM_MSG = '/room/msg'
-    
-
-def get_channel_id(user_id, room_id):
-    # TODO: this needs to be secret? if so do a hash?
-    return str(user_id) + str(room_id)
+    ROOM_MSG = '/room/msg'    
     
 class ChatUser(polymodel.PolyModel):    
     screenname = ndb.StringProperty()
@@ -44,14 +41,21 @@ class ChatOperator(ChatUser):
     
     def is_operator(self):
         return True
+
+    def answer_call(self, call_id):
+        call = ChatCall.get_by_id(call_id)
+        if not call:
+            return None, None, None
+        
+        room, tok = call.answer(self)
+        if not room:
+            return None, None, None
+            
+        return call, room, tok
         
     @staticmethod
-    def room_url_from_call(call):        
-        room = call.caller_channel.room_key.get()
-        if not room:
-            return None
-            
-        return "{0}?room_name={1}".format(ChatURL.OCHAT, room.key.id())
+    def call_url(call):            
+        return "{0}?call_id={1}".format(ChatURL.OANSWER, call.key.id())
         
     @staticmethod
     def gauth_user_id(raw_user_id):    
@@ -66,16 +70,16 @@ class ChatOperator(ChatUser):
         return o
 
     @staticmethod
-    def call_operators(call):
-        # TODO: handle if room_url_from_call fails for some reason
+    def announce_call(call, answered='false'):
         msg = json.dumps({
-            'call_info' : call.key.id(),
-            'call_url' : ChatOperator.room_url_from_call(call),
+            'call_id' : call.key.id(),
+            'call_url' : ChatOperator.call_url(call),
+            'call_answered' : answered,
         })
         operators = ChatOperator.query(ChatOperator.is_on_call==True).fetch()
         for operator in operators:
-            channel.send_message(operator.on_call_channel_token, msg)       
-        
+            channel.send_message(operator.on_call_channel_token, msg) 
+    
     def update_rooms(self):
         # find all rooms this user is in and refresh screen name lists
         rooms = ChatRoom.query(ChatRoom.chat_channels.user_key == self.key).fetch(20)
@@ -93,9 +97,14 @@ class ChatOperator(ChatUser):
             self.put()
         
 class ChatCaller(ChatUser):
+    def remote_addr(self):
+        return self.key.id()
+        
     @staticmethod
-    def factory(remote_addr, screenname):
+    def caller_get_or_insert(remote_addr, screenname):
         # TODO: need to make this multiple for people behind proxies/NATs (though unlikely for now)
+        if not screenname:
+            screenname = ''
         caller = ChatCaller.get_or_insert(remote_addr, screenname=screenname)
         if not caller:
             return None
@@ -129,7 +138,7 @@ class ChatRoom(polymodel.PolyModel):
         if c:
             return c.channel_token, False
         
-        tok = channel.create_channel(get_channel_id(user_key.id(), self.key.id()))
+        tok = channel.create_channel(self.get_channel_id(user_key))        
         if not tok:            
             return None, None
             
@@ -141,6 +150,29 @@ class ChatRoom(polymodel.PolyModel):
         self.put()
         
         return tok, True
+    
+    @ndb.transactional(xg=True)
+    def add_operator(self, operator, channel_token):
+        for c in self.chat_channels:
+            if c.user_key == operator.key:
+                c.channel_token = channel_token
+                self.put()
+                return True
+            else:
+                cuser = c.user_key.get()
+                if cuser and cuser.is_operator():
+                    return False                    
+                
+        self.chat_channels.append(ChatChannel(
+            user_key = operator.key,
+            room_key = self.key,
+            channel_token = channel_token)
+        )       
+        self.put()
+        return True
+                         
+    def get_channel_id(self, user_key):
+        return str(user_key.id()) + str(self.key.id())        
     
     def get_channel_for_user(self, user_key):
         for c in self.chat_channels:
@@ -169,7 +201,7 @@ class ChatRoom(polymodel.PolyModel):
     def announce_user(self, user):
         msg = json.dumps({
             'content' : 'announcement',
-            'line' : '{0} has joined the room'.format(user.screenname),
+            'line' : u'{0} has joined the room'.format(user.screenname),
         })
         for chan in self.chat_channels:
             if chan.user_key != user.key:
@@ -177,10 +209,35 @@ class ChatRoom(polymodel.PolyModel):
             
 class ChatCall(ndb.Model):
     caller_channel = ndb.StructuredProperty(ChatChannel)
-
+    
     def get_url(self):
         return '/room?room={0}&call={1}'.format(self.caller_channel.room_key.id(), self.key.id())
-    
+
+    def answer(self, operator):        
+        room = self.caller_channel.room_key.get()
+        if not room:
+            logging.info('no room')
+            return None, None
+            
+        tok = channel.create_channel(room.get_channel_id(operator.key))
+        if not tok:            
+            # TODO: remove from room
+            logging.info('no channel')
+            return None, None       
+        
+        try:
+            added = room.add_operator(operator, tok)
+        except Exception as e:
+            # could be transaction failure
+            logging.info('{0}: room {1} operator {2}'.format(e, room, operator))
+            added = False
+        
+        if not added:
+            # TODO: invalidate token?
+            return None, None      
+            
+        return room, tok
+        
     @staticmethod
     def factory(caller_key):
         call = ChatCall()

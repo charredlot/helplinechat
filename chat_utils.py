@@ -26,16 +26,13 @@ SCREENNAME_CHARS = {
     
 }
 
-def is_screenname_char(c):
-    # TODO: use some lib but whatever
-    n = ord(c)
-    return ((n >= ord('a') and n <= 'z') or
-            (n >= ord('A') and n <= 'Z') or
-            (n >= ord('0') and n <= '9') or
-            (n == ord('_')))
-               
 def sanitize_screenname(sn):
-    return unicode(''.join( (c for c in sn if is_screenname_char(c)) ))
+    if not sn:
+        return None
+    end = len(sn)
+    if end > 200:
+        end = 200
+    return unicode(jinja2.escape(sn[:end]))
 
 
 BAD_CHARS = {
@@ -58,7 +55,7 @@ def sanitize_chat_msg(msg):
     end = len(msg)
     if end > 200:
         end = 200
-    return unicode(''.join( (replace_char(c) for c in msg[:end]) ))
+    return unicode(jinja2.escape(msg[:end]))
     
 class BaseHandler(webapp2.RequestHandler):
     def dispatch(self):

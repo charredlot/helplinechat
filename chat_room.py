@@ -107,15 +107,17 @@ class RoomMsgPage(BaseHandler):
 
         if not cuser.chat_msg_rate_limit_check():
             return
-            
-        # TODO: rate-limit msgs
-        line = sanitize_chat_msg(data['line'])
+                          
+        line = sanitize_chat_msg(data['line'])  
+        if not line:
+            return
         
         msg = json.dumps({
             'content' : 'user_msg',
             'from' : cuser.screenname,
             'line' : line,
-        })               
+        })
+        
         for c in room.chat_channels:
             channel.send_message(c.channel_token, msg)
                         
