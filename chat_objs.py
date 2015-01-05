@@ -28,7 +28,9 @@ class ChatURL(object):
     
 class ChatUser(polymodel.PolyModel):    
     screenname = ndb.StringProperty()
-        
+    last_chat_msg = ndb.DateTimeProperty(auto_now_add=True)
+    chat_msg_credit = ndb.IntegerProperty(default=0)
+    
     def chat_msg_rate_limit_check(self):
         return True
         
@@ -93,7 +95,8 @@ class ChatOperator(ChatUser):
         # TODO save the date and do date compare
         # also this is bad but meh        
         if not self.on_call_channel_token:
-            self.on_call_channel_token = channel.create_channel(self.key.id(), 2*60)
+            self.on_call_channel_token = channel.create_channel(self.key.id(),
+                ChatSettings.OPERATOR_CHANNEL_MINUTES)
             self.put()
         
 class ChatCaller(ChatUser):
@@ -138,7 +141,7 @@ class ChatRoom(polymodel.PolyModel):
         if c:
             return c.channel_token, False
         
-        tok = channel.create_channel(self.get_channel_id(user_key))        
+        tok = channel.create_channel(self.get_channel_id(user_key), ChatSettings.CHAT_CHANNEL_MINUTES)        
         if not tok:            
             return None, None
             
@@ -219,7 +222,7 @@ class ChatCall(ndb.Model):
             logging.info('no room')
             return None, None
             
-        tok = channel.create_channel(room.get_channel_id(operator.key))
+        tok = channel.create_channel(room.get_channel_id(operator.key), ChatSettings.OPERATOR_CHANNEL_MINUTES)
         if not tok:            
             # TODO: remove from room
             logging.info('no channel')

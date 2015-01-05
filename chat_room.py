@@ -117,7 +117,7 @@ class RoomMsgPage(BaseHandler):
             'from' : cuser.screenname,
             'line' : line,
         })
-        
+  
         for c in room.chat_channels:
             channel.send_message(c.channel_token, msg)
                         

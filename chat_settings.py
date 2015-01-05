@@ -9,3 +9,5 @@ class ChatSettings(object):
     GAUTH_TOKEN_VERIFY = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
     GAUTH_ISS = 'accounts.google.com'
     GAUTH_REDIRECT_URI_PREFIX = 'http://localhost:8080'
+    CHAT_CHANNEL_MINUTES = 2*60
+    OPERATOR_CHANNEL_MINUTES = 4*60
