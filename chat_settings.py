@@ -1,4 +1,6 @@
 
+import datetime
+
 class ChatSettings(object):
     GAUTH_URI = 'https://accounts.google.com/o/oauth2/auth'
     GAUTH_TOKEN_URI = 'https://accounts.google.com/o/oauth2/token'
@@ -11,3 +13,5 @@ class ChatSettings(object):
     GAUTH_REDIRECT_URI_PREFIX = 'http://localhost:8080'
     CHAT_CHANNEL_MINUTES = 2*60
     OPERATOR_CHANNEL_MINUTES = 4*60
+    CHAT_MSG_INTERVAL = datetime.timedelta(seconds=10)
+    CHAT_MSG_PER_INTERVAL = 10

@@ -106,6 +106,7 @@ class RoomMsgPage(BaseHandler):
             return
 
         if not cuser.chat_msg_rate_limit_check():
+            logging.info('chat msg rate limit exceeded {0}'.format(cuser))
             return
                           
         line = sanitize_chat_msg(data['line'])  

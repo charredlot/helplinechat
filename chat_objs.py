@@ -3,9 +3,10 @@ from google.appengine.api import channel
 from google.appengine.ext import ndb
 from google.appengine.ext.ndb import polymodel
 
-import logging
+import datetime
 
 import json
+import logging
 
 from chat_settings import ChatSettings
 
@@ -28,10 +29,22 @@ class ChatURL(object):
     
 class ChatUser(polymodel.PolyModel):    
     screenname = ndb.StringProperty()
-    last_chat_msg = ndb.DateTimeProperty(auto_now_add=True)
+    next_chat_msg_credit = ndb.DateTimeProperty(auto_now_add=True)
     chat_msg_credit = ndb.IntegerProperty(default=0)
-    
+     
+    @ndb.transactional
     def chat_msg_rate_limit_check(self):
+        if self.chat_msg_credit == 0:
+            t = datetime.datetime.utcnow()
+            if t < self.next_chat_msg_credit:
+                return False
+            else:
+                self.next_chat_msg_credit = t + ChatSettings.CHAT_MSG_INTERVAL
+                self.chat_msg_credit = ChatSettings.CHAT_MSG_PER_INTERVAL - 1
+                self.put()
+                return True
+        self.chat_msg_credit -= 1
+        self.put()
         return True
         
     def is_operator(self):
