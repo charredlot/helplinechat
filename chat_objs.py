@@ -53,7 +53,8 @@ class ChatUser(polymodel.PolyModel):
 class ChatOperator(ChatUser):
     is_on_call = ndb.BooleanProperty(default=False)
     on_call_channel_token = ndb.StringProperty()
-    
+    on_call_channel_token_expiration = ndb.DateTimeProperty(auto_now_add=True)
+ 
     def is_operator(self):
         return True
 
@@ -103,14 +104,21 @@ class ChatOperator(ChatUser):
             
         for r in rooms:
             r.refresh_screennames()            
-        
-    def refresh_channel(self):
+    
+    @ndb.transactional 
+    def go_on_call(self):
         # TODO save the date and do date compare
         # also this is bad but meh        
-        if not self.on_call_channel_token:
-            self.on_call_channel_token = channel.create_channel(self.key.id(),
+        t = datetime.datetime.utcnow()
+        if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
+            return
+        self.on_call_channel_token = channel.create_channel(self.key.id(),
                 ChatSettings.OPERATOR_CHANNEL_MINUTES)
-            self.put()
+        self.on_call_channel_token_expiration = t + \
+            ChatSettings.OPERATOR_CHANNEL_DURATION
+        self.is_on_call = True
+        self.put()
+        
         
 class ChatCaller(ChatUser):
     def remote_addr(self):

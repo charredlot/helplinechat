@@ -68,6 +68,7 @@ var bad_date_to_str = function(d) {
 
 var g_state = {};
 g_state.on_call_channel_token = "{{ on_call_channel_token }}";
+g_state.refresh_token = false;
 
 var g_call_ids = {};
 
@@ -76,31 +77,18 @@ var post_message = function(path, data) {
     var xhr = new XMLHttpRequest();
     
     xhr.open('POST', path, true);
-    xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
     if (data) {
-        return xhr.send('data=' + JSON.stringify(data));
+        xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+        xhr.send('data=' + JSON.stringify(data));
     } else {
-        return xhr.send();
+        xhr.send();
     }
+    return xhr;
 };
 
 var display_status = function(info) {
     $("#status").html(info);
 };
-
-go_off_call = function() {
-    if (g_state.socket != null) {
-        try {
-            g_state.socket.close();
-        } catch (e) {
-            // will close succeed? who knows!
-        }
-        g_state.socket = null;
-    }
-    display_status("<p><b>Status: Not on call</b></p>");
-    $("#oncall").prop('disabled', false);
-    $("#offcall").prop('disabled', true);
-}
 
 onOpened = function() {
     var data = { 'on_call_channel_token' : g_state.on_call_channel_token };
@@ -132,13 +120,32 @@ onMessage = function(m) {
     }    
 };
 
+go_off_call = function() {
+    if (g_state.socket != null) {
+        g_state.socket.close();
+        g_state.socket = null;
+    }
+    display_status("<p><b>Status: Not on call</b></p>");
+    $("#oncall").prop('disabled', false);
+    $("#offcall").prop('disabled', true);
+};
+
 onError = function(e) {
-    go_off_call();
-}
+    // probably fragile, worst api ever
+    if (e.description === "Token+timed+out.") {
+        g_state.refresh_token = true;
+        console.log("beep boop");
+    }
+};
 
 onClose = function() {
-    go_off_call();
-}
+    if (g_state.refresh_token) {
+        g_state.refresh_token = false;
+        go_on_call();
+    } else {
+        go_off_call();
+    }
+};
 
 openChannel = function() {
     var channel = new goog.appengine.Channel(g_state.on_call_channel_token.replace(/"/g, ''));

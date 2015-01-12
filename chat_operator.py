@@ -61,9 +61,7 @@ class OOnCallPage(BaseHandler):
             self.error(406)
             return
         
-        o.refresh_channel()
-        o.is_on_call = True
-        o.put()
+        o.go_on_call()
         
         self.response.write(json.dumps(o.on_call_channel_token))
 
