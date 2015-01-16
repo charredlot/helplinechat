@@ -68,18 +68,34 @@ class ChatOperator(ChatUser):
             return None, None, None
             
         return call, room, tok
-        
-    @staticmethod
-    def call_url(call):            
+    
+    @classmethod    
+    def call_to_json(cls, call, is_historic = False): 
+        msg = {
+            'call_id' : call.key.id(),
+            'call_url' : ChatOperator.call_url(call),
+            'call_date' : str(call.call_datetime),
+        }
+        if is_historic:
+            msg['is_historic'] = 1
+        return json.dumps(msg)
+
+    @classmethod
+    def call_url(cls, call):            
         return "{0}?call_id={1}".format(ChatURL.OANSWER, call.key.id())
+
+    def refresh_calls(self, last_call_datetime):
+        for c in ChatCall.calls_since(last_call_datetime):
+            msg = ChatOperator.call_to_json(c, is_historic=True)
+            channel.send_message(self.on_call_channel_token, msg) 
         
-    @staticmethod
-    def gauth_user_id(raw_user_id):    
+    @classmethod
+    def gauth_user_id(cls, raw_user_id):    
         # in case we do non-google logins
         return "gplus{0}".format(raw_user_id)
         
-    @staticmethod
-    def gauth_get_or_insert(user_id):        
+    @classmethod
+    def gauth_get_or_insert(cls, user_id):        
         o = ChatOperator.get_or_insert(user_id)
         if o:            
             o.put()
@@ -87,11 +103,7 @@ class ChatOperator(ChatUser):
 
     @staticmethod
     def announce_call(call, answered='false'):
-        msg = json.dumps({
-            'call_id' : call.key.id(),
-            'call_url' : ChatOperator.call_url(call),
-            'call_answered' : answered,
-        })
+        msg = ChatOperator.call_to_json(call)
         operators = ChatOperator.query(ChatOperator.is_on_call==True).fetch()
         for operator in operators:
             channel.send_message(operator.on_call_channel_token, msg) 
@@ -112,7 +124,7 @@ class ChatOperator(ChatUser):
         t = datetime.datetime.utcnow()
         if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
             return
-        self.on_call_channel_token = channel.create_channel(self.key.id(),
+        self.on_call_channel_token = channel.create_channel(str(self.key.id()) + 'oncall',
                 ChatSettings.OPERATOR_CHANNEL_MINUTES)
         self.on_call_channel_token_expiration = t + \
             ChatSettings.OPERATOR_CHANNEL_DURATION
@@ -233,9 +245,11 @@ class ChatRoom(polymodel.PolyModel):
             
 class ChatCall(ndb.Model):
     caller_channel = ndb.StructuredProperty(ChatChannel)
-    
+    call_datetime = ndb.DateTimeProperty(auto_now_add=True)    
+
     def get_url(self):
         return '/room?room={0}&call={1}'.format(self.caller_channel.room_key.id(), self.key.id())
+
 
     def answer(self, operator):        
         room = self.caller_channel.room_key.get()
@@ -261,9 +275,16 @@ class ChatCall(ndb.Model):
             return None, None      
             
         return room, tok
+
+    @classmethod
+    def calls_since(cls, last_call_datetime):
+        # get 20 most recent, but sort from earliest time
+        return sorted(
+            cls.query(cls.call_datetime > last_call_datetime).order(-cls.call_datetime).fetch(20),
+            key=lambda c: c.call_datetime)
         
-    @staticmethod
-    def factory(caller_key):
+    @classmethod
+    def factory(cls, caller_key):
         call = ChatCall()
         if not call:
             return None

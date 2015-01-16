@@ -39,6 +39,7 @@ New Screen Name: <input type="text" name="screenname">
 {% endif %}
 
 <div id='status'><p><b>Status: Not on call</b></p></div>
+<input value="Check for new calls" id="missedcallsbutton" type="button" onclick="javascript:get_missed_calls_manual();">
 <div id='callpopup' style="display: none"></div>
 <div id='calls'></div>
 {% endblock body %}
@@ -52,30 +53,19 @@ $(function() {
     });
 });
 
-var bad_num_pad = function(num) {
-    if (num < 10) {
-        return '0' + num;
-    } else {
-        return String(num);
-    }
-};
-
-var bad_date_to_str = function(d) {
-    return bad_num_pad(d.getHours()) + ':' +
-        bad_num_pad(d.getMinutes()) + ':' +
-        bad_num_pad(d.getSeconds());        
-}
-
 var g_state = {};
 g_state.on_call_channel_token = "{{ on_call_channel_token }}";
 g_state.refresh_token = false;
-
-var g_call_ids = {};
+g_state.call_ids = {};
 
 // TODO: put this in a common thing
-var post_message = function(path, data) {
+var post_message_impl = function(path, data, async_func) {
     var xhr = new XMLHttpRequest();
     
+    if (async_func != null) {
+        xhr.onreadystatechange = async_func;
+    }
+
     xhr.open('POST', path, true);
     if (data) {
         xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
@@ -84,6 +74,10 @@ var post_message = function(path, data) {
         xhr.send();
     }
     return xhr;
+};
+
+var post_message = function(path, data) {
+    post_message_impl(path, data, null);
 };
 
 var display_status = function(info) {
@@ -100,23 +94,42 @@ onOpened = function() {
     
 };
 
+var get_missed_calls = function(d) {
+    post_message_impl('/home/refresh_calls',
+        { 'last_call_datetime' : d.toISOString() },
+        function() {});
+}
+
+var get_missed_calls_manual = function() {
+    var curr = new Date();
+    var past = new Date(curr.getTime() - (2*60*1000));
+    get_missed_calls(past);
+}
+
 onMessage = function(m) {
     data = JSON.parse(m.data);
     var call_id = data['call_id'];
     var call_url = data['call_url'];
-    var call_answered = (data['call_answered'] === 'true');
-    var d = new Date();
+    var call_answered = ('call_answered' in data)
+    var call_date_str = data['call_date'] + " UTC"; // whyyyy javascript why
+    var d = new Date(call_date_str);
     
-    if (call_id in g_call_ids) {
+    if (call_id in g_state.call_ids) {
         var call_id_span = '#' + call_id;
         $(call_id_span).html('<a href="' + call_url + '" target="_blank">' + call_id + 
-            '</a> was answered (' + bad_date_to_str(d) + ')');
+        '</a> was answered (' + d.toLocaleTimeString() + ')');
     } else {
-        $("#calls").append('<br>' + bad_date_to_str(d) + ' <span id="' + call_id + 
+        $("#calls").append('<br>' + d.toLocaleTimeString() + ' <span id="' + call_id + 
             '">New call <a href="' + call_url + "\"target = \"_blank\">" + call_id +
             "</a></span>");
-        g_call_ids[call_id] = true;
-        alert('New call ' + call_id + ' (please click ok to keep getting calls)');
+        g_state.call_ids[call_id] = true;
+
+        if (!('is_historic' in data)) {
+            alert('New call ' + call_id + ' (please click ok to keep getting calls)');
+            /* we lose messages until user clicks ok, so refresh */
+            /* FIXME: this doesn't work for whatever fricking reason, with settimeout or without */
+            setTimeout(get_missed_calls(d), 2*1000);
+        }
     }    
 };
 
@@ -148,6 +161,7 @@ onClose = function() {
 };
 
 openChannel = function() {
+    // ugh it has quotes, so we have to strip them?
     var channel = new goog.appengine.Channel(g_state.on_call_channel_token.replace(/"/g, ''));
     var handler = {
       'onopen': onOpened,

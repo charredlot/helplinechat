@@ -121,7 +121,12 @@ class RoomMsgPage(BaseHandler):
   
         for c in room.chat_channels:
             channel.send_message(c.channel_token, msg)
-                        
+                  
+class ChannelConnectedPage(BaseHandler):
+    def post(self):
+        //logging.info(self.request.get('from'))    
+        return
+
 class NopPage(BaseHandler):
     def get(self):
         self.response.write('nop')
@@ -134,8 +139,8 @@ app = webapp2.WSGIApplication(
         (ChatURL.ROOM, RoomPage),
         (ChatURL.ROOM_CONNECTED, RoomConnectedPage), 
         (ChatURL.ROOM_MSG, RoomMsgPage),
-        ('/_ah/channel/connected/', NopPage),
-        ('/_ah/channel/disconnected/', NopPage),
+        ('/_ah/channel/connected/', ChannelConnectedPage),
+        ('/_ah/channel/disconnected/', ChannelConnectedPage),
     ],
     debug=True, config=CONFIG)
 

@@ -95,6 +95,17 @@ class BaseHandler(webapp2.RequestHandler):
             
         return ChatOperator.get_by_id(operator_id)
 
+    def get_operator_data(self):
+        o = self.get_operator()
+        if not o:
+            return None, None
+            
+        data = self.get_post_data_default()
+        if not data:        
+            return None, None
+            
+        return o, data
+
     def get_post_data_default(self):
         raw_data = self.request.get('data')
         if not raw_data:

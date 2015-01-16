@@ -10,18 +10,6 @@ from webapp2_extras import sessions
 
 from chat_utils import *
 from chat_objs import *
-
-def get_post_data(handler):
-    o = handler.get_operator()
-    if not o:
-        logging.info("beep0")
-        return None, None
-        
-    data = handler.get_post_data_default()
-    if not data:        
-        return None, None
-        
-    return o, data
         
 class OHomePage(BaseHandler):    
     def get(self): 
@@ -118,13 +106,15 @@ class OCallAnsweredPage(BaseHandler):
 
 class ORefreshCallsPage(BaseHandler):
     def post(self):
-        o = self.get_operator()
+        o, data = self.get_operator_data();
         if not o:
             self.error(405)
             return
-        
-        # TODO: let operator know all the calls they missed       
-     
+
+        # Expecting javascript Date toISOString, but who knows if we can rely on it
+        last_call_datetime = datetime.datetime.strptime(data['last_call_datetime'],
+            '%Y-%m-%dT%H:%M:%S.%fZ')
+        o.refresh_calls(last_call_datetime)
         
 app = webapp2.WSGIApplication(
     [
