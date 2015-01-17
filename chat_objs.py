@@ -113,6 +113,11 @@ class ChatOperator(ChatUser):
         for operator in operators:
             channel.send_message(operator.on_call_channel_token, msg) 
 
+    @classmethod
+    def verify_email(cls, email):
+        # FIXME: check against email database
+        return True
+
     def to_on_call_channel_user_id(self):
         return str(self.key.id()) + '_oncall' 
 

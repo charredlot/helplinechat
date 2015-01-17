@@ -22,10 +22,6 @@ JINJA_ENVIRONMENT = jinja2.Environment(
 def get_template(path):
     return JINJA_ENVIRONMENT.get_template(path)
 
-SCREENNAME_CHARS = {
-    
-}
-
 def sanitize_screenname(sn):
     if not sn:
         return None
@@ -33,22 +29,6 @@ def sanitize_screenname(sn):
     if end > 200:
         end = 200
     return unicode(jinja2.escape(sn[:end]))
-
-
-BAD_CHARS = {
-    '"'     : "&#34;", 
-    '\''    : "&#39;",
-    '<'     : "&lt;",
-    '>'     : "&gt;",
-    '&'     : "&amp;",
-    '/'     : "&#47;", 
-    '\\'    : "&#92;",
-}
-def replace_char(c):
-    try:
-        return BAD_CHARS[c]
-    except KeyError:
-        return c
      
 def sanitize_chat_msg(msg):
     # TODO: use some official library

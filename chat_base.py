@@ -59,7 +59,9 @@ def jwt_verify_claims(claims):
     try:
         return (('sub' in claims) and
                 (claims['aud'] == ChatSettings.GAUTH_CLIENT_ID) and
-                (claims['iss'] == ChatSettings.GAUTH_ISS))
+                (claims['iss'] == ChatSettings.GAUTH_ISS) and
+                claims['email_verified'] and
+                ChatOperator.verify_email(claims['email']))
     except:
         return False
         
