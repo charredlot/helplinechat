@@ -87,7 +87,6 @@ var display_status = function(info) {
 onOpened = function() {
     var data = { 'on_call_channel_token' : g_state.on_call_channel_token };
     
-    post_message('/home/oncall', data);
     display_status("<p><b>Status: On call</b></p>");    
     $("#oncall").prop('disabled', true);
     $("#offcall").prop('disabled', false);
@@ -110,14 +109,17 @@ onMessage = function(m) {
     data = JSON.parse(m.data);
     var call_id = data['call_id'];
     var call_url = data['call_url'];
-    var call_answered = ('call_answered' in data)
     var call_date_str = data['call_date'] + " UTC"; // whyyyy javascript why
     var d = new Date(call_date_str);
     
     if (call_id in g_state.call_ids) {
-        var call_id_span = '#' + call_id;
-        $(call_id_span).html('<a href="' + call_url + '" target="_blank">' + call_id + 
-        '</a> was answered (' + d.toLocaleTimeString() + ')');
+        if ('call_answered' in data) {
+            var call_id_span = '#' + call_id;
+            var answered_date = new Date(data['call_answered'] + " UTC");
+
+            $(call_id_span).html('<a href="' + call_url + '" target="_blank">' + call_id + 
+                '</a> was answered (' + answered_date.toLocaleTimeString() + ')');
+        }
     } else {
         $("#calls").append('<br>' + d.toLocaleTimeString() + ' <span id="' + call_id + 
             '">New call <a href="' + call_url + "\"target = \"_blank\">" + call_id +
@@ -147,7 +149,6 @@ onError = function(e) {
     // probably fragile, worst api ever
     if (e.description === "Token+timed+out.") {
         g_state.refresh_token = true;
-        console.log("beep boop");
     }
 };
 

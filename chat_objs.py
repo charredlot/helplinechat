@@ -68,25 +68,10 @@ class ChatOperator(ChatUser):
             return None, None, None
             
         return call, room, tok
-    
-    @classmethod    
-    def call_to_json(cls, call, is_historic = False): 
-        msg = {
-            'call_id' : call.key.id(),
-            'call_url' : ChatOperator.call_url(call),
-            'call_date' : str(call.call_datetime),
-        }
-        if is_historic:
-            msg['is_historic'] = 1
-        return json.dumps(msg)
-
-    @classmethod
-    def call_url(cls, call):            
-        return "{0}?call_id={1}".format(ChatURL.OANSWER, call.key.id())
 
     def refresh_calls(self, last_call_datetime):
         for c in ChatCall.calls_since(last_call_datetime):
-            msg = ChatOperator.call_to_json(c, is_historic=True)
+            msg = c.to_operator_json(is_historic=True)
             channel.send_message(self.on_call_channel_token, msg) 
         
     @classmethod
@@ -101,13 +86,34 @@ class ChatOperator(ChatUser):
             o.put()
         return o
 
-    @staticmethod
-    def announce_call(call, answered='false'):
-        msg = ChatOperator.call_to_json(call)
-        operators = ChatOperator.query(ChatOperator.is_on_call==True).fetch()
+    @classmethod
+    def announce_call(cls, call):
+        msg = call.to_operator_json()
+        operators = cls.query(cls.is_on_call==True).fetch()
         for operator in operators:
             channel.send_message(operator.on_call_channel_token, msg) 
     
+    @classmethod
+    def channel_connected(cls, channel_user_id):
+        o = ChatOperator.from_channel_user_id(channel_user_id)
+        if o:
+            o.go_on_call(check_channel=False)
+
+    @classmethod
+    def channel_disconnected(cls, channel_user_id):
+        o = ChatOperator.from_channel_user_id(channel_user_id)
+        if o:
+            o.go_off_call()
+
+    def to_channel_user_id(self):
+        return str(self.key.id()) + 'oncall' 
+
+    @classmethod
+    def from_channel_user_id(cls, channel_user_id):
+        if channel_user_id.endswith('oncall'):
+            return ChatOperator.get_by_id(channel_user_id[:-len('oncall')])
+        return None
+
     def update_rooms(self):
         # find all rooms this user is in and refresh screen name lists
         rooms = ChatRoom.query(ChatRoom.chat_channels.user_key == self.key).fetch(20)
@@ -117,31 +123,41 @@ class ChatOperator(ChatUser):
         for r in rooms:
             r.refresh_screennames()            
     
-    @ndb.transactional 
-    def go_on_call(self):
+    @ndb.transactional
+    def go_on_call(self, check_channel=True):
         # TODO save the date and do date compare
-        # also this is bad but meh        
-        t = datetime.datetime.utcnow()
-        if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
-            return
-        self.on_call_channel_token = channel.create_channel(str(self.key.id()) + 'oncall',
-                ChatSettings.OPERATOR_CHANNEL_MINUTES)
-        self.on_call_channel_token_expiration = t + \
-            ChatSettings.OPERATOR_CHANNEL_DURATION
+        # also this is bad but meh
+        if check_channel:
+            t = datetime.datetime.utcnow()
+            if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
+                return
+            self.on_call_channel_token = channel.create_channel(self.to_channel_user_id(),
+                    ChatSettings.OPERATOR_CHANNEL_MINUTES)
+            self.on_call_channel_token_expiration = t + \
+                ChatSettings.OPERATOR_CHANNEL_DURATION
         self.is_on_call = True
         self.put()
-        
+
+    @ndb.transactional
+    def go_off_call(self):
+        self.is_on_call = False
+        self.put()
         
 class ChatCaller(ChatUser):
     def remote_addr(self):
-        return self.key.id()
+        s = str(self.key.id())
+        return s[len('caller'):]
         
-    @staticmethod
-    def caller_get_or_insert(remote_addr, screenname):
+    @classmethod
+    def form_user_id(cls, remote_addr):
+        return 'caller{0}'.format(remote_addr)
+
+    @classmethod
+    def caller_get_or_insert(cls, remote_addr, screenname):
         # TODO: need to make this multiple for people behind proxies/NATs (though unlikely for now)
         if not screenname:
             screenname = ''
-        caller = ChatCaller.get_or_insert(remote_addr, screenname=screenname)
+        caller = cls.get_or_insert(ChatCaller.form_user_id(remote_addr), screenname=screenname)
         if not caller:
             return None
             
@@ -208,8 +224,8 @@ class ChatRoom(polymodel.PolyModel):
         return True
                          
     def get_channel_id(self, user_key):
-        return str(user_key.id()) + str(self.key.id())        
-    
+        return '{0}_{1}'.format(user_key.id(), self.key.id()) 
+
     def get_channel_for_user(self, user_key):
         for c in self.chat_channels:
             if c.user_key == user_key:
@@ -246,17 +262,34 @@ class ChatRoom(polymodel.PolyModel):
 class ChatCall(ndb.Model):
     caller_channel = ndb.StructuredProperty(ChatChannel)
     call_datetime = ndb.DateTimeProperty(auto_now_add=True)    
+    answered_datetime = ndb.DateTimeProperty(default=None)
 
-    def get_url(self):
+    def caller_url(self):
         return '/room?room={0}&call={1}'.format(self.caller_channel.room_key.id(), self.key.id())
 
+    def operator_url(self):
+        return "{0}?call_id={1}".format(ChatURL.OANSWER, self.key.id())
+    
+    def to_operator_json(self, is_historic = False): 
+        msg = {
+            'call_id' : self.key.id(),
+            'call_url' : self.operator_url(),
+            'call_date' : str(self.call_datetime),
+        }
+        if is_historic:
+            msg['is_historic'] = 1
+        if not self.answered_datetime is None:
+            msg['call_answered'] = str(self.answered_datetime)
 
-    def answer(self, operator):        
+        return json.dumps(msg)
+
+    def answer(self, operator):
         room = self.caller_channel.room_key.get()
         if not room:
             logging.info('no room')
             return None, None
-            
+        
+        # TODO: since channel tokens cost money, we want to put this after add_operator later 
         tok = channel.create_channel(room.get_channel_id(operator.key), ChatSettings.OPERATOR_CHANNEL_MINUTES)
         if not tok:            
             # TODO: remove from room
@@ -273,7 +306,9 @@ class ChatCall(ndb.Model):
         if not added:
             # TODO: invalidate token?
             return None, None      
-            
+        
+        self.answered_datetime = datetime.datetime.utcnow()
+        self.put()    
         return room, tok
 
     @classmethod

@@ -141,3 +141,10 @@ def get_rand_string(length):
         ) 
     )
  
+class NopPage(BaseHandler):
+    def get(self):
+        self.response.write('nop')
+        
+    def post(self):
+        return
+        

@@ -79,8 +79,8 @@ class CallPage(BaseHandler):
         if user_id:
             cuser = ChatCaller.get_by_id(user_id)
             if cuser and (cuser.remote_addr() != self.request.remote_addr):
-                self.error(404)
-                return
+                logging.info('potential impostor cookie {0} actual ip {1}'.format(cuser.remote_addr(), self.request.remote_addr))
+                cuser = None
             
         if cuser:
             if screenname and (screenname != cuser.screenname):
@@ -102,7 +102,7 @@ class CallPage(BaseHandler):
             
         ChatOperator.announce_call(call)
 
-        self.redirect(call.get_url())
+        self.redirect(call.caller_url())
 
 class LoginPage(BaseHandler):
     def post(self):

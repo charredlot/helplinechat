@@ -59,9 +59,8 @@ class OOffCallPage(BaseHandler):
         if not o:
             self.error(404)
             return
-            
-        o.is_on_call = False
-        o.put()
+        
+        o.go_off_call()    
         
         self.response.write("off call")
 
@@ -83,7 +82,7 @@ class OAnswerPage(BaseHandler):
             self.redirect(ChatURL.OCALLANSWERED)
             return
         
-        ChatOperator.announce_call(call, answered=True)
+        ChatOperator.announce_call(call)
         
         vals = {
             'room_name' : room.key.id(),            
@@ -102,6 +101,7 @@ class OCheckLoginPage(BaseHandler):
 
 class OCallAnsweredPage(BaseHandler):
     def get(self):
+        # TODO: allow shadowing
         self.response.write("Sorry, the call's been answered already! You can close this window")
 
 class ORefreshCallsPage(BaseHandler):
