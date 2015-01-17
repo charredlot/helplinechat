@@ -91,7 +91,7 @@ class RoomConnectedPage(BaseHandler):
             self.error(406)
             return
         
-        room.announce_user(user)
+        room.announce_user_join(user)
         room.refresh_screennames()
         
 class RoomMsgPage(BaseHandler):

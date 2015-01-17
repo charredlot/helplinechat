@@ -49,7 +49,27 @@ class ChatUser(polymodel.PolyModel):
         
     def is_operator(self):
         return False
-        
+    
+    @classmethod
+    def channel_connected(cls, channel_user_id):
+        args = channel_user_id.split('_')
+        u = ChatUser.get_by_id(args[0])
+        if u:
+            u.handle_channel_connected(args)
+
+    @classmethod
+    def channel_disconnected(cls, channel_user_id):
+        args = channel_user_id.split('_')
+        u = ChatUser.get_by_id(args[0])
+        if u:
+            u.handle_channel_disconnected(args)
+
+    def handle_channel_connected(self, vals):
+        logging.info("connect not implemented?")
+
+    def handle_channel_disconnected(self, vals):
+        logging.info("disconnect not implemented?")
+    
 class ChatOperator(ChatUser):
     is_on_call = ndb.BooleanProperty(default=False)
     on_call_channel_token = ndb.StringProperty()
@@ -92,27 +112,9 @@ class ChatOperator(ChatUser):
         operators = cls.query(cls.is_on_call==True).fetch()
         for operator in operators:
             channel.send_message(operator.on_call_channel_token, msg) 
-    
-    @classmethod
-    def channel_connected(cls, channel_user_id):
-        o = ChatOperator.from_channel_user_id(channel_user_id)
-        if o:
-            o.go_on_call(check_channel=False)
 
-    @classmethod
-    def channel_disconnected(cls, channel_user_id):
-        o = ChatOperator.from_channel_user_id(channel_user_id)
-        if o:
-            o.go_off_call()
-
-    def to_channel_user_id(self):
-        return str(self.key.id()) + 'oncall' 
-
-    @classmethod
-    def from_channel_user_id(cls, channel_user_id):
-        if channel_user_id.endswith('oncall'):
-            return ChatOperator.get_by_id(channel_user_id[:-len('oncall')])
-        return None
+    def to_on_call_channel_user_id(self):
+        return str(self.key.id()) + '_oncall' 
 
     def update_rooms(self):
         # find all rooms this user is in and refresh screen name lists
@@ -131,7 +133,7 @@ class ChatOperator(ChatUser):
             t = datetime.datetime.utcnow()
             if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
                 return
-            self.on_call_channel_token = channel.create_channel(self.to_channel_user_id(),
+            self.on_call_channel_token = channel.create_channel(self.to_on_call_channel_user_id(),
                     ChatSettings.OPERATOR_CHANNEL_MINUTES)
             self.on_call_channel_token_expiration = t + \
                 ChatSettings.OPERATOR_CHANNEL_DURATION
@@ -143,6 +145,18 @@ class ChatOperator(ChatUser):
         self.is_on_call = False
         self.put()
         
+    def handle_channel_connected(self, vals):
+        #logging.info("connect {0}".format(vals))
+        return
+
+    def handle_channel_disconnected(self, vals):
+        if vals[1] == 'oncall':
+            self.go_off_call
+        else:
+            room = ChatRoom.get_by_id(long(vals[1]))
+            if room:
+                room.remove_user(self)
+
 class ChatCaller(ChatUser):
     def remote_addr(self):
         s = str(self.key.id())
@@ -165,8 +179,13 @@ class ChatCaller(ChatUser):
    
         return caller
         
-    def clean_up(self):
-        self.room.key.delete()
+    def handle_channel_connected(self, vals):
+        pass
+
+    def handle_channel_disconnected(self, vals):
+        room = ChatRoom.get_by_id(long(vals[1]))
+        if room:
+            room.remove_user(self)
 
 class ChatChannel(ndb.Model):
     user_key = ndb.KeyProperty(kind=ChatUser)
@@ -182,6 +201,21 @@ class ChatRoom(polymodel.PolyModel):
             return c
         else:
             return None
+
+    @ndb.transactional
+    def remove_user_key_t(self, user_key):
+        remove_index = None
+        for i, c in enumerate(self.chat_channels):
+            if c.user_key == user_key:
+                remove_index = i
+                break
+        if not (remove_index is None):
+            del self.chat_channels[remove_index]
+            self.put()
+
+    def remove_user(self, user):
+        self.remove_user_key_t(user.key)
+        self.announce_user_leave(user)
             
     # better have called room.put() and user.put() at least once so key is valid
     def add_user_key(self, user_key):
@@ -250,10 +284,19 @@ class ChatRoom(polymodel.PolyModel):
         for chan in self.chat_channels:
             channel.send_message(chan.channel_token, msg)  
 
-    def announce_user(self, user):
+    def announce_user_join(self, user):
         msg = json.dumps({
             'content' : 'announcement',
             'line' : u'{0} has joined the room'.format(user.screenname),
+        })
+        for chan in self.chat_channels:
+            if chan.user_key != user.key:
+                channel.send_message(chan.channel_token, msg)  
+
+    def announce_user_leave(self, user):
+        msg = json.dumps({
+            'content' : 'announcement',
+            'line' : u'{0} has left the room'.format(user.screenname),
         })
         for chan in self.chat_channels:
             if chan.user_key != user.key:

@@ -15,7 +15,7 @@ class ChannelConnectedPage(BaseHandler):
             return
 
         logging.info("{0} connected".format(channel_user_id))
-        ChatOperator.channel_connected(channel_user_id)
+        ChatUser.channel_connected(channel_user_id)
 
 class ChannelDisconnectedPage(BaseHandler):
     def post(self):
@@ -24,7 +24,7 @@ class ChannelDisconnectedPage(BaseHandler):
             return
 
         logging.info("{0} disconnected".format(channel_user_id))
-        ChatOperator.channel_disconnected(channel_user_id)
+        ChatUser.channel_disconnected(channel_user_id)
 
 app = webapp2.WSGIApplication(
     [
