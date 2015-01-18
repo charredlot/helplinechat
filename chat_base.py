@@ -67,8 +67,10 @@ def jwt_verify_claims(claims):
         
 class MainPage(BaseHandler):
     def get(self):        
+        csrf_token = self.set_csrf_token()
         vals = {        
             'call_url' : ChatURL.CALL,
+            'csrf_token' : csrf_token,
         }
         self.template_response('templates/index.html', vals)
         
@@ -112,13 +114,16 @@ class LoginPage(BaseHandler):
         if not data:
             self.error(501)
             return
-            
+                    
+        if not self.verify_csrf_token(data):
+            return
+
         try:
             id_token = data['id_token']
         except KeyError:
             self.error(502)
             return
-            
+
         if not jwt_verify_id_token(id_token):
             logging.info("bad jwt id_token {0}".format(id_token))
             return

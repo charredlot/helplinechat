@@ -27,6 +27,7 @@ var do_login = function(res, data, status) {
 
     var vals = {
         'id_token' : res['id_token'],
+        'csrf_token' : '{{ csrf_token }}',
     };
     
     var action_url = "{{ login_url }}";

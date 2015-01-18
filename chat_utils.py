@@ -1,4 +1,6 @@
+import itertools
 import os
+import random
 import string
 
 import json
@@ -107,6 +109,34 @@ class BaseHandler(webapp2.RequestHandler):
         operator_id = self.session.get('user_id')
         if operator_id:
             del self.session['user_id']
+
+    def set_csrf_token(self):
+        csrf_token = get_rand_string(64)
+        self.session['csrf_token'] = csrf_token
+        return csrf_token
+
+    def verify_csrf_token(self, data):
+        try:
+            csrf_token = data['csrf_token']
+        except KeyError:
+            logging.info('no csrf {0}'.format(data))
+            return
+    
+        session_csrf_token = self.session.get('csrf_token')
+        if not session_csrf_token:
+            logging.info('no session csrf {0}'.format(data))
+            return
+
+        # lolgeremy
+        good = True
+        for l, r in itertools.izip(csrf_token, session_csrf_token):
+            if l != r:
+                good = False
+
+        if not good:
+            logging.info('mismatched csrf {0} {1}'.format(data, session_csrf_token))
+
+        return good
  
     @webapp2.cached_property
     def session(self):
