@@ -6,10 +6,6 @@
 <hr>
 {% endblock top %}
 
-{% block more_js %}
-<script type='text/javascript' src='/static/js/chat_room.js?version=213'></script>
-{% endblock more_js %}
-
 {% block css %}
 <style type='text/css'>
  #chatlines {
@@ -57,3 +53,100 @@ $(function() {
 <input type="text" id="chatmsg"><input value="Send" id="sendbutton" type="button" onclick="javascript:send_to_room();">
 </p>
 {% endblock body %}
+
+{% block bottom %}
+<script type='text/javascript'>
+var g_state = {};
+
+// TODO: put this in a common thing
+var post_message = function(path, data) {
+    var xhr = new XMLHttpRequest();
+    
+    console.log('data=' + encodeURIComponent(JSON.stringify(data))); 
+
+    xhr.open('POST', path, true);
+    xhr.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+    xhr.send('data=' + encodeURIComponent(JSON.stringify(data))); 
+};
+
+onOpened = function() {
+    var data = {};    
+    
+    $("#status").html("<b>Connected</b>");
+    
+    data['room_name'] = g_state.room_name;        
+    
+    post_message("/room/connected", data);
+};
+
+var displayScreennames = function(msg) {
+    var users = msg['screennames'];
+    var chatusers = $("#chatusers");
+    
+    var x = "";
+    for (var i=0, size=users.length; i < size; i++) {
+        var l = "<br><b>" + users[i] + "</b>";        
+        x += l
+    }
+    
+    chatusers.html(x)
+}
+
+onMessage = function(m) {
+    var msg = JSON.parse(m.data);
+    var d = new Date()
+    
+    line = "<br><b>&lt;" + d.toLocaleTimeString() + "&gt;</b> ";
+        
+    var content = msg['content'];
+    
+    if (content === 'screennames') {
+        displayScreennames(msg);
+        return;
+    } else if (content === 'announcement') {
+        line = line + "<b>" + msg.line + "</b>";
+    } else if (content === 'user_msg') {
+        line = line + "<b>" + msg.from + "</b>: " + msg.line;
+    }
+    
+    var lines = $('#chatlines');
+    
+    lines.append(line);
+    lines.scrollTop(lines[0].scrollHeight);
+    // $('#lines').append($('<br>').append($('<b>').text(msg.from), msg.line));
+};
+
+openChannel = function(room_name, tok) {
+    g_state.room_name = room_name;
+    var token = tok;
+    var channel = new goog.appengine.Channel(token);
+    var handler = {
+      'onopen': onOpened,
+      'onmessage': onMessage,
+      'onerror': function() {},
+      'onclose': function() {}
+    };
+    var socket = channel.open(handler);
+    socket.onopen = onOpened;
+    socket.onmessage = onMessage;
+}
+
+initialize = function(room_name, token) {
+    openChannel(room_name, token);
+};
+
+send_to_room = function() {
+    var data = {}
+    
+    data['room_name'] = g_state.room_name;
+    data['line'] = $("#chatmsg").val();
+
+    console.log(data['line'])
+    
+    post_message("/room/msg", data);
+    $("#chatmsg").val("");
+}
+</script>
+{% endblock bottom %}
+
+
