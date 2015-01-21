@@ -1,3 +1,5 @@
+from google.appengine.api import urlfetch
+
 import itertools
 import os
 import random
@@ -137,6 +139,28 @@ class BaseHandler(webapp2.RequestHandler):
             logging.info('mismatched csrf {0} {1}'.format(data, session_csrf_token))
 
         return good
+
+    def verify_captcha(self):
+        captcha_response = self.request.get('g-recaptcha-response')
+        if not captcha_response:
+            logging.info('no captcha {0}'.format(self.request.remote_addr))
+            return False
+        
+        verify_url = ChatSettings.GAUTH_RECAPTCHA_URI + \
+            '?secret={0}&response={1}&remoteip{2}'.format(
+                ChatSettings.GAUTH_RECAPTCHA_SECRET,
+                captcha_response,
+                self.request.remote_addr)
+        try:
+            res = urlfetch.fetch(verify_url)
+        except Exception as e:
+            logging.info('{0} failed captcha {1}'.format(self.request.remote_addr, captcha_response))
+            return False
+        
+        if res.status_code != 200:
+            return False
+       
+        return True
  
     @webapp2.cached_property
     def session(self):

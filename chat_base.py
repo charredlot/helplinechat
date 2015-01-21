@@ -47,7 +47,6 @@ def jwt_verify_id_token(id_token):
     try:
         res = urlfetch.fetch(verify_url)
     except Exception as e:
-        self.error(504)
         return False
     
     if res.status_code != 200:
@@ -71,13 +70,18 @@ class MainPage(BaseHandler):
         vals = {        
             'call_url' : ChatURL.CALL,
             'csrf_token' : csrf_token,
+            'recaptcha_site_key' : ChatSettings.GAUTH_RECAPTCHA_SITE_KEY,
         }
         self.template_response('templates/index.html', vals)
         
 class CallPage(BaseHandler):
     def get(self):        
         cuser = None
-        
+
+        if not self.verify_captcha():
+            return
+
+
         screenname = sanitize_screenname(self.request.get('screenname'))
         user_id = self.session.get('user_id')
         if user_id:
