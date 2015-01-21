@@ -1,8 +1,11 @@
-application: chattest27
+application: helplinechattest
 version: 1
 runtime: python27
 api_version: 1
 threadsafe: no
+
+inbound_services:
+- channel_presence
 
 libraries:
 - name: jinja2
@@ -14,14 +17,18 @@ handlers:
   
 - url: /room.*
   script: chat_room.py
+  secure: always
 
 - url: /_ah/channel/.*
   script: chat_channel.py  
+  secure: always
 
 - url: /home.*
   script: chat_operator.py
+  secure: always
   
 - url: /.*
   script: chat_base.py
+  secure: always
   
 
