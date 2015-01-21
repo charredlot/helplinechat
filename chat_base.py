@@ -19,7 +19,7 @@ import urllib
 
 from chat_utils import *
 from chat_objs import *
-from chat_settings import ChatSettings
+from chat_settings import ChatSettings, ChatURL
 
 def base64_pad(s):
     return s + ('=' * (4 - (len(s) % 4)))
@@ -67,20 +67,32 @@ def jwt_verify_claims(claims):
 class MainPage(BaseHandler):
     def get(self):        
         csrf_token = self.set_csrf_token()
+        if ChatSettings.DEBUG_SKIP_CAPTCHA:
+            call_url = ChatURL.CALL
+        else:
+            call_url = ChatURL.CALL_PREP
+
         vals = {        
-            'call_url' : ChatURL.CALL,
+            'call_prep_url' : call_url,
             'csrf_token' : csrf_token,
-            'recaptcha_site_key' : ChatSettings.GAUTH_RECAPTCHA_SITE_KEY,
         }
         self.template_response('templates/index.html', vals)
-        
+
+class CallPrepPage(BaseHandler):
+    def get(self):
+        vals = {
+            'call_url' : ChatURL.CALL,
+            'recaptcha_site_key' : ChatSettings.GAUTH_RECAPTCHA_SITE_KEY,
+            'screenname' : self.request.get('screenname'),
+        }        
+        self.template_response('templates/call_prep.html', vals)
+ 
 class CallPage(BaseHandler):
     def get(self):        
         cuser = None
 
-        if not self.verify_captcha():
+        if (not ChatSettings.DEBUG_SKIP_CAPTCHA) and (not self.verify_captcha()):
             return
-
 
         screenname = sanitize_screenname(self.request.get('screenname'))
         user_id = self.session.get('user_id')
@@ -160,6 +172,7 @@ application = webapp2.WSGIApplication(
         ('/', MainPage),
         ('/dup', MainPage),     
         (ChatURL.CALL, CallPage),
+        (ChatURL.CALL_PREP, CallPrepPage),
         (ChatURL.OLOGIN, LoginPage),
         (ChatURL.OLOGOUT, LogoutPage),
     ],

@@ -9,6 +9,7 @@ from webapp2_extras import sessions
 
 from chat_utils import *
 from chat_objs import *
+from chat_settings import ChatSettings, ChatURL
         
 def get_room_info(handler, page=""):
     user = handler.get_chat_user()

@@ -10,6 +10,7 @@ from webapp2_extras import sessions
 
 from chat_utils import *
 from chat_objs import *
+from chat_settings import ChatSettings, ChatURL
         
 class OHomePage(BaseHandler):    
     def get(self): 

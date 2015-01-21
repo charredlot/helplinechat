@@ -8,25 +8,8 @@ import datetime
 import json
 import logging
 
-from chat_settings import ChatSettings
+from chat_settings import ChatSettings, ChatURL
 
-class ChatURL(object):
-    OHOME = '/home'
-    OMODIFY = '/home/modify'
-    OONCALL = '/home/oncall'
-    OOFFCALL = '/home/offcall'
-    OANSWER = '/home/answer'
-    OCALLANSWERED = '/home/call_answered'
-    OREFRESHCALLS = '/home/refresh_calls'
-    OCHECK_LOGIN = '/home/check_login'
-    OLOGIN = '/login'
-    OLOGIN_FINISH = '/login_finish'
-    OLOGOUT = '/logout'    
-    CALL = '/call'
-    ROOM = '/room'
-    ROOM_CONNECTED = '/room/connected'
-    ROOM_MSG = '/room/msg'    
-    
 class ChatUser(polymodel.PolyModel):    
     screenname = ndb.StringProperty()
     next_chat_msg_credit = ndb.DateTimeProperty(auto_now_add=True)

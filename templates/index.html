@@ -3,15 +3,10 @@
 
 {% block title %}home{% endblock title %}
 
-{% block more_js %}
-<script src='https://www.google.com/recaptcha/api.js'></script>
-{% endblock more_js %}
-
 {% block body %}
-<form action="{{ call_url }}">
-<div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}" data-callback='recaptcha_done'></div>
+<form action="{{ call_prep_url }}">
 <p>Enter Screen Name: <input type="text" id="screenname" name="screenname"></p>
-<p><input id='call' type="submit" value="Talk to an operator" disabled="disabled" id="talk"></p>
+<p><input id='call' type="submit" value="Talk to an operator"></p>
 </form>
 <hr>
 <p>Are you an operator? Please sign in.</p>
@@ -37,7 +32,7 @@ var do_login = function(res, data, status) {
     
     var action_url = "{{ login_url }}";
     var form = $('<form action="' + action_url + '" method="post">' +
-        '<input id="idtokentext" style="display: none" type="textfield" name="data"></form>');
+        '<input id="idtokentext" type="hidden" name="data"></form>');
     $('body').append(form);
     $("#idtokentext").val(JSON.stringify(vals));
     form.submit();
@@ -60,8 +55,5 @@ function gplusCallback(res) {
     }
 };
 
-recaptcha_done = function(res) {
-    $("#call").prop('disabled', false);
-};
 </script>
 {% endblock body %}

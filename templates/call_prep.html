@@ -1,0 +1,22 @@
+
+{% extends "templates/base.html" %}
+
+{% block title %}home{% endblock title %}
+
+{% block more_js %}
+<script src='https://www.google.com/recaptcha/api.js'></script>
+{% endblock more_js %}
+
+{% block body %}
+<p>Please verify that you're not a robot.</p>
+<form action="{{ call_url }}">
+<div class="g-recaptcha" data-sitekey="{{ recaptcha_site_key }}" data-callback='recaptcha_done'></div>
+<input type='hidden' name='screenname' value='{{ screenname }}'>
+<p><input id='call' type="submit" value="Continue" disabled="disabled"></p>
+</form>
+<script type='text/javascript'>
+recaptcha_done = function(res) {
+    $("#call").prop('disabled', false);
+};
+</script>
+{% endblock body %}

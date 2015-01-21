@@ -12,6 +12,7 @@ import webapp2
 from webapp2_extras import sessions
 
 from chat_objs import *
+from chat_settings import ChatSettings, ChatURL
 
 CONFIG = {
     'webapp2_extras.sessions' : {
