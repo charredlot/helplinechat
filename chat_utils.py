@@ -78,7 +78,12 @@ class BaseHandler(webapp2.RequestHandler):
         if not operator_id:
             return None
             
-        return ChatOperator.get_by_id(operator_id)
+        # for some reason appengine is giving chatcaller from this? need to investigate
+        o = ChatOperator.get_by_id(operator_id)
+        if o.is_operator():            
+            return o
+        else:
+            return None
 
     def get_operator_data(self):
         o = self.get_operator()
@@ -109,9 +114,12 @@ class BaseHandler(webapp2.RequestHandler):
         self.session['user_id'] = user_id        
         
     def logout_operator(self):
-        operator_id = self.session.get('user_id')
-        if operator_id:
-            del self.session['user_id']
+        o = self.get_operator()
+        if o:
+            # deleting just the one thing doesn't seem to work well
+            # clearing the whole cookie seems to work better
+            o.go_off_call()
+            self.session.clear()
 
     def set_csrf_token(self):
         csrf_token = get_rand_string(64)
