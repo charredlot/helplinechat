@@ -41,7 +41,7 @@ def sanitize_chat_msg(msg):
     if end > 200:
         end = 200
     return unicode(jinja2.escape(msg[:end]))
-    
+
 class BaseHandler(webapp2.RequestHandler):
     def dispatch(self):
         # Get a session store for this request.

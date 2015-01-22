@@ -10,6 +10,18 @@ import logging
 
 from chat_settings import ChatSettings, ChatURL
 
+def to_iso_format_hack(dt):    
+    # python datetime is bullshit and doesn't add the Z for iso
+    # so isoformat does not actually return isoformat
+    # this causes problems in firefox, which interprets it as a local date
+    s = dt.isoformat()
+    if (not s.endswith('Z')) and \
+        (not s.endswith('+00:00')) and \
+        (not s.endswith('-00:00')):
+        return s + 'Z'
+    else:
+        return s
+
 class ChatUser(polymodel.PolyModel):    
     screenname = ndb.StringProperty()
     next_chat_msg_credit = ndb.DateTimeProperty(auto_now_add=True)
@@ -305,7 +317,7 @@ class ChatCall(ndb.Model):
         msg = {
             'call_id' : self.key.id(),
             'call_url' : self.operator_url(),
-            'call_date' : str(self.call_datetime),
+            'call_date' : to_iso_format_hack(self.call_datetime),
         }
         if is_historic:
             msg['is_historic'] = 1

@@ -110,7 +110,7 @@ onMessage = function(m) {
     data = JSON.parse(m.data);
     var call_id = data['call_id'];
     var call_url = data['call_url'];
-    var call_date_str = data['call_date'] + " UTC"; // whyyyy javascript why
+    var call_date_str = data['call_date'];
     var d = new Date(call_date_str);
     
     if (call_id in g_state.call_ids) {

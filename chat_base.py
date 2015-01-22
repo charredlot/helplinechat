@@ -58,9 +58,7 @@ def jwt_verify_claims(claims):
     try:
         return (('sub' in claims) and
                 (claims['aud'] == ChatSettings.GAUTH_CLIENT_ID) and
-                (claims['iss'] == ChatSettings.GAUTH_ISS) and
-                claims['email_verified'] and
-                ChatOperator.verify_email(claims['email']))
+                (claims['iss'] == ChatSettings.GAUTH_ISS))
     except:
         return False
         
@@ -153,6 +151,14 @@ class LoginPage(BaseHandler):
             logging.info("bad jwt claims {0}".format(jwt_claims))
             self.error(401)
             return        
+        
+        if (not jwt_claims['email_verified']) or \
+            (not ChatOperator.verify_email(jwt_claims['email'])):
+            vals = {
+                'email' : jwt_claims['email'],
+            }
+            self.template_response('templates/relogin.html', vals)
+            return
         
         user_id = ChatOperator.gauth_user_id(jwt_claims['sub'])        
         if not ChatOperator.gauth_get_or_insert(user_id):
