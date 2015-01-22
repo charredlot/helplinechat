@@ -99,7 +99,7 @@ class ChatOperator(ChatUser):
     @classmethod
     def verify_email(cls, email):
         # FIXME: check against email database
-        return True
+        return email.endswith('@translifeline.org')
 
     def to_on_call_channel_user_id(self):
         return str(self.key.id()) + '_oncall' 

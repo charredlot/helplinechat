@@ -151,7 +151,7 @@ class LoginPage(BaseHandler):
 
         if not jwt_verify_claims(jwt_claims):
             logging.info("bad jwt claims {0}".format(jwt_claims))
-            self.error(504)
+            self.error(401)
             return        
         
         user_id = ChatOperator.gauth_user_id(jwt_claims['sub'])        
