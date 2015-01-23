@@ -80,7 +80,7 @@ class BaseHandler(webapp2.RequestHandler):
             
         # for some reason appengine is giving chatcaller from this? need to investigate
         o = ChatOperator.get_by_id(operator_id)
-        if o.is_operator():            
+        if o and o.is_operator():            
             return o
         else:
             return None

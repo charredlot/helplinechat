@@ -9,7 +9,7 @@ import json
 import logging
 
 from chat_settings import ChatSettings, ChatURL
-from site_settngs import SiteSettings
+from site_settings import SiteSettings
 
 def to_iso_format_hack(dt):    
     # python datetime is bullshit and doesn't add the Z for iso
