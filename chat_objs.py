@@ -9,6 +9,7 @@ import json
 import logging
 
 from chat_settings import ChatSettings, ChatURL
+from site_settngs import SiteSettings
 
 def to_iso_format_hack(dt):    
     # python datetime is bullshit and doesn't add the Z for iso
@@ -110,8 +111,7 @@ class ChatOperator(ChatUser):
 
     @classmethod
     def verify_email(cls, email):
-        # FIXME: check against email database
-        return email.endswith('@translifeline.org')
+        return SiteSettings.verify_email(email)
 
     def to_on_call_channel_user_id(self):
         return str(self.key.id()) + '_oncall' 

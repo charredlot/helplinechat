@@ -29,7 +29,6 @@ class ChatSettings(object):
     GAUTH_TOKEN_VERIFY = 'https://www.googleapis.com/oauth2/v1/tokeninfo'
     GAUTH_RECAPTCHA_URI = 'https://www.google.com/recaptcha/api/siteverify'
     GAUTH_ISS = 'accounts.google.com'
-    GAUTH_REDIRECT_URI_PREFIX = 'http://localhost:8080'
     CHAT_CHANNEL_MINUTES = 4*60
     OPERATOR_CHANNEL_MINUTES = 2*60
     OPERATOR_CHANNEL_DURATION = datetime.timedelta(minutes=2*60 - 2)
@@ -38,6 +37,6 @@ class ChatSettings(object):
     GAUTH_CLIENT_ID = HiddenSettings.GAUTH_CLIENT_ID
     GAUTH_CLIENT_SECRET = HiddenSettings.GAUTH_CLIENT_SECRET
     GAUTH_RECAPTCHA_SECRET = HiddenSettings.GAUTH_RECAPTCHA_SECRET
-    GAUTH_RECAPTCHA_SITE_KEY = '6LfUqgATAAAAACVvz0OfihHV9AsEBL_OgDrqUWrg'
+    GAUTH_RECAPTCHA_SITE_KEY = HiddenSettings.GAUTH_RECAPTCHA_SITE_KEY
     # debug goes here    
     DEBUG_SKIP_CAPTCHA = False
