@@ -69,14 +69,14 @@ class ChatUser(polymodel.PolyModel):
 class ChatOperator(ChatUser):
     is_on_call = ndb.BooleanProperty(default=False)
     on_call_channel_token = ndb.StringProperty()
-    on_call_channel_token_expiration = ndb.DateTimeProperty(auto_now_add=True) 
+    on_call_channel_token_expiration = ndb.DateTimeProperty(auto_now_add=True)
     calls_answered = ndb.IntegerProperty(default=0)
 
     def is_operator(self):
         return True
 
     @ndb.transactional
-    def inc_calls_answered(self):
+    def answered_call(self):
         self.calls_answered += 1
         self.put()
 
@@ -88,9 +88,9 @@ class ChatOperator(ChatUser):
         room, tok = call.answer(self)
         if not room:
             return None, None, None
-        
-        self.inc_calls_answered()
     
+        self.answered_call()
+
         return call, room, tok
 
     def refresh_calls(self, last_call_datetime):
@@ -158,7 +158,7 @@ class ChatOperator(ChatUser):
 
     def handle_channel_disconnected(self, vals):
         if vals[1] == 'oncall':
-            self.go_off_call
+            self.go_off_call()
         else:
             room = ChatRoom.get_by_id(long(vals[1]))
             if room:

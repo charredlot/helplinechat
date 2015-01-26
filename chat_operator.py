@@ -20,11 +20,13 @@ class OHomePage(BaseHandler):
             self.redirect('/')
             return
 
+        csrf_token = self.set_csrf_token()
         vals = {            
             'operator_name' : o.key.id(),
             'on_call_channel_token' : o.on_call_channel_token,
             'screenname' : o.screenname,
             'is_on_call' : o.is_on_call,
+            'csrf_token' : csrf_token,
         }
         self.template_response('templates/operator.html', vals)
 
@@ -45,11 +47,15 @@ class OModifyPage(BaseHandler):
 
 class OOnCallPage(BaseHandler):
     def post(self): 
-        o = self.get_operator()
+        logging.info(self.request.get('data'))
+        o, data = self.get_operator_data()
         if not o:
             self.error(406)
             return
         
+        if not self.verify_csrf_token(data):
+            return
+
         o.go_on_call()
         
         self.response.write(json.dumps(o.on_call_channel_token))
@@ -110,6 +116,9 @@ class ORefreshCallsPage(BaseHandler):
         o, data = self.get_operator_data();
         if not o:
             self.error(405)
+            return
+
+        if not self.verify_csrf_token(data):
             return
 
         # Expecting javascript Date toISOString, but who knows if we can rely on it

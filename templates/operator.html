@@ -30,7 +30,7 @@ New Screen Name: <input type="text" name="screenname">
 </p>
 </form>
 
-<p>Due to techinical limitations, please close the alert windows that pop up with each call or you won't get subsequent calls.</p>
+<p>Due to technical limitations, please close the alert windows that pop up with each call or you won't get subsequent calls.</p>
 {% if is_on_call %}
 <input value="Go On Call" id="oncall" type="button" disabled="disabled" onclick="javascript:go_on_call();">
 <input value="Go Off Call" id="offcall" type="button" onclick="javascript:go_off_call();">
@@ -96,7 +96,10 @@ onOpened = function() {
 
 var get_missed_calls = function(d) {
     post_message_impl('/home/refresh_calls',
-        { 'last_call_datetime' : d.toISOString() },
+        {
+            'last_call_datetime' : d.toISOString(),
+            'csrf_token' : '{{ csrf_token }}'
+        },
         function() {});
 }
 
@@ -175,7 +178,8 @@ openChannel = function() {
 };
 
 go_on_call = function() {
-    $.post("/home/oncall",
+    var vals = { 'csrf_token' : '{{ csrf_token }}' };
+    $.post("/home/oncall", 'data=' + JSON.stringify(vals),
             function(data, status) {
                 if ("success" == status) {
                     g_state.on_call_channel_token = data;
