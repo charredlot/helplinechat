@@ -114,6 +114,10 @@ class RoomMsgPage(BaseHandler):
         if not line:
             return
         
+        if ChatSettings.LOG_CHAT_MSGS:
+            store_msg = ChatMsg(user_key=cuser.key, room_key=room.key, msg=line)
+            store_msg.put()
+
         msg = json.dumps({
             'content' : 'user_msg',
             'from' : cuser.screenname,

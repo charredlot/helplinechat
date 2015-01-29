@@ -153,7 +153,11 @@ class ChatOperator(ChatUser):
         self.put()
         
     def handle_channel_connected(self, vals):
-        #logging.info("connect {0}".format(vals))
+        if vals[1] == 'oncall':
+            # sometimes channel disconnects in dev server
+            # TODO: not sure if it's dev server nonsense or local bug
+            self.is_on_call = True
+            self.put()
         return
 
     def handle_channel_disconnected(self, vals):
@@ -385,3 +389,9 @@ class ChatCall(ndb.Model):
                                    channel_token = tok)
         call.put()
         return call
+
+class ChatMsg(ndb.Model):
+    user_key = ndb.KeyProperty(kind=ChatUser) 
+    room_key = ndb.KeyProperty(kind=ChatRoom)
+    msg = ndb.StringProperty()
+    sent_datetime = ndb.DateTimeProperty(auto_now_add=True) 

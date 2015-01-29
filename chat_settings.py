@@ -38,5 +38,6 @@ class ChatSettings(object):
     GAUTH_CLIENT_SECRET = HiddenSettings.GAUTH_CLIENT_SECRET
     GAUTH_RECAPTCHA_SECRET = HiddenSettings.GAUTH_RECAPTCHA_SECRET
     GAUTH_RECAPTCHA_SITE_KEY = HiddenSettings.GAUTH_RECAPTCHA_SITE_KEY
+    LOG_CHAT_MSGS=True
     # debug goes here    
     DEBUG_SKIP_CAPTCHA = False
