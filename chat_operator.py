@@ -47,7 +47,6 @@ class OModifyPage(BaseHandler):
 
 class OOnCallPage(BaseHandler):
     def post(self): 
-        logging.info(self.request.get('data'))
         o, data = self.get_operator_data()
         if not o:
             self.error(406)
