@@ -88,9 +88,9 @@ class ChatOperator(ChatUser):
         room, tok = call.answer(self)
         if not room:
             return None, None, None
-    
-        self.answered_call()
 
+        self.answered_call(self)
+            
         return call, room, tok
 
     def refresh_calls(self, last_call_datetime):
@@ -139,11 +139,12 @@ class ChatOperator(ChatUser):
         # also this is bad but meh
         if check_channel:
             t = datetime.datetime.utcnow()
-            if (not self.on_call_channel_token) or (t >= self.on_call_channel_token_expiration):
-                self.on_call_channel_token = channel.create_channel(self.to_on_call_channel_user_id(),
-                        ChatSettings.OPERATOR_CHANNEL_MINUTES)
-                self.on_call_channel_token_expiration = t + \
-                    ChatSettings.OPERATOR_CHANNEL_DURATION
+            if self.on_call_channel_token and (t < self.on_call_channel_token_expiration):
+                return
+            self.on_call_channel_token = channel.create_channel(self.to_on_call_channel_user_id(),
+                    ChatSettings.OPERATOR_CHANNEL_MINUTES)
+            self.on_call_channel_token_expiration = t + \
+                ChatSettings.OPERATOR_CHANNEL_DURATION
         self.is_on_call = True
         self.put()
 
@@ -216,7 +217,7 @@ class ChatRoom(polymodel.PolyModel):
             if c.user_key == user_key:
                 remove_index = i
                 break
-        if remove_index is not None:
+        if not (remove_index is None):
             del self.chat_channels[remove_index]
             self.put()
 
@@ -225,7 +226,6 @@ class ChatRoom(polymodel.PolyModel):
         self.announce_user_leave(user)
             
     # better have called room.put() and user.put() at least once so key is valid
-    @ndb.transactional
     def add_user_key(self, user_key):
         # TODO: this should be a transaction probably
         c = self.has_user_key(user_key)
@@ -245,6 +245,26 @@ class ChatRoom(polymodel.PolyModel):
         
         return tok, True
     
+    @ndb.transactional(xg=True)
+    def add_operator(self, operator, channel_token):
+        for c in self.chat_channels:
+            if c.user_key == operator.key:
+                c.channel_token = channel_token
+                self.put()
+                return True
+            else:
+                cuser = c.user_key.get()
+                if cuser and cuser.is_operator():
+                    return False                    
+                
+        self.chat_channels.append(ChatChannel(
+            user_key = operator.key,
+            room_key = self.key,
+            channel_token = channel_token)
+        )       
+        self.put()
+        return True
+                         
     def get_channel_id(self, user_key):
         return '{0}_{1}'.format(user_key.id(), self.key.id()) 
 
@@ -294,7 +314,6 @@ class ChatCall(ndb.Model):
     caller_channel = ndb.StructuredProperty(ChatChannel)
     call_datetime = ndb.DateTimeProperty(auto_now_add=True)    
     answered_datetime = ndb.DateTimeProperty(default=None)
-    answered_by = ndb.KeyProperty(kind=ChatOperator, default=None)
 
     def caller_url(self):
         return '/room?room={0}&call={1}'.format(self.caller_channel.room_key.id(), self.key.id())
@@ -315,40 +334,28 @@ class ChatCall(ndb.Model):
 
         return json.dumps(msg)
 
-    @ndb.transactional
-    def mark_answered(self, operator):
-        if self.answered_by is None:
-            self.answered_by = operator.key
-            self.put()
-            return True
-        elif self.answered_by == operator.key:
-            return True
-        else:
-            return False
-        
     def answer(self, operator):
-        try:
-            won = self.mark_answered(operator)
-        except:
-            logging.info('{0}: operator {1} call {2}'.format(e, operator, call))
-            won = False
-
-        if not won:
-            return None, None
-            
         room = self.caller_channel.room_key.get()
         if not room:
             logging.info('no room')
             return None, None
-
+        
+        # TODO: since channel tokens cost money, we want to put this after add_operator later 
+        tok = channel.create_channel(room.get_channel_id(operator.key), ChatSettings.OPERATOR_CHANNEL_MINUTES)
+        if not tok:            
+            # TODO: remove from room
+            logging.info('no channel')
+            return None, None       
+        
         try:
-            tok, added = room.add_user_key(operator.key)
+            added = room.add_operator(operator, tok)
         except Exception as e:
             # could be transaction failure
             logging.info('{0}: room {1} operator {2}'.format(e, room, operator))
-            tok = None
+            added = False
         
-        if not tok:
+        if not added:
+            # TODO: invalidate token?
             return None, None      
         
         self.answered_datetime = datetime.datetime.utcnow()
