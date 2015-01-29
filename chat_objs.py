@@ -205,7 +205,8 @@ class ChatChannel(ndb.Model):
         
 class ChatRoom(polymodel.PolyModel):    
     chat_channels = ndb.StructuredProperty(ChatChannel, repeated=True)
-    
+    parent_call = ndb.KeyProperty(kind='ChatCall', default=None)
+ 
     def has_user_key(self, user_key):
         c = self.get_channel_for_user(user_key)
         if c:
@@ -376,11 +377,14 @@ class ChatCall(ndb.Model):
         if not room:
             # call isn't put, so should be okay?
             return None
-        
-        room.put() # so room key is valid
+
+        call.put() # so call.key is valid
+        room.parent_call = call.key
+        room.put() # so room.key is valid
+
         tok, newly_added = room.add_user_key(caller_key)
         if not tok:
-            # call isn't put, should not need delete
+            call.key.delete()
             room.key.delete()
             return
         
